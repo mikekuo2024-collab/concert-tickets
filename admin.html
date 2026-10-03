@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>訂票後台管理</title>
+<style>
+  :root { --main: #b4462a; --bg: #f4f4f6; --line: #e2e2e6; --muted: #6b6b75;
+    --c1: #b4462a; --c2: #d98a3d; --c3: #4a7c8c; --c4: #6b5ca5;
+    --s-no: #fde2e1; --s-wait: #fff4c2; --s-ok: #d9f2dd; --s-cancel: #e0e0e0; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, "PingFang TC", "Microsoft JhengHei", sans-serif; background: var(--bg); color: #222; line-height: 1.5; }
+  header { background: #2b2b33; color: #fff; padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  header h1 { margin: 0; font-size: 1.15rem; flex: 1; }
+  header .meta { font-size: .85rem; color: #ccc; }
+  main { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  button { font: inherit; cursor: pointer; border-radius: 6px; border: 1px solid var(--main); background: var(--main); color: #fff; padding: 7px 14px; }
+  button.sec { background: #fff; color: var(--main); }
+  button:disabled { opacity: .5; cursor: default; }
+  header button { background: transparent; border-color: #888; color: #fff; padding: 5px 12px; }
+  input, select, textarea { font: inherit; padding: 7px 9px; border: 1px solid #bbb; border-radius: 6px; background: #fff; }
+  textarea { width: 100%; }
+  .tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--main); margin-bottom: 16px; overflow-x: auto; }
+  .tabs button { background: #fff; color: #333; border: 1px solid var(--line); border-bottom: none; border-radius: 6px 6px 0 0; white-space: nowrap; }
+  .tabs button.on { background: var(--main); color: #fff; border-color: var(--main); }
+  .panel[hidden] { display: none; }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .card h2 { margin: 0 0 12px; font-size: 1.1rem; }
+  .card h3 { margin: 0 0 8px; font-size: 1rem; }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .kpi { background: #fff; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; }
+  .kpi .l { font-size: .85rem; color: var(--muted); }
+  .kpi .v { font-size: 1.5rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .kpi .s { font-size: .8rem; color: var(--muted); }
+  .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+  .sess-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+  .sess-head .sub { font-size: .85rem; color: var(--muted); }
+  .nums { display: flex; gap: 16px; margin: 10px 0; flex-wrap: wrap; }
+  .nums div { font-size: .85rem; color: var(--muted); }
+  .nums b { display: block; font-size: 1.2rem; color: #222; font-variant-numeric: tabular-nums; }
+  .bar-row { display: grid; grid-template-columns: 70px 1fr 120px; align-items: center; gap: 8px; margin: 6px 0; font-size: .88rem; }
+  .bar-track { background: #f0f0f3; border-radius: 4px; height: 18px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; min-width: 2px; }
+  .bar-row .n { text-align: right; font-variant-numeric: tabular-nums; }
+  .stack { display: flex; height: 26px; border-radius: 6px; overflow: hidden; background: #f0f0f3; }
+  .stack div { height: 100%; }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: .85rem; margin-top: 8px; }
+  .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; border: 1px solid rgba(0,0,0,.1); }
+  .toolbar { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+  .toolbar .grow { flex: 1; min-width: 160px; }
+  .tbl-wrap { overflow-x: auto; }
+  table.list { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  table.list th, table.list td { padding: 7px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  table.list th { background: #fafafb; position: sticky; top: 0; white-space: nowrap; }
+  table.list td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  table.list tr:hover td { background: #fcfaf9; }
+  .badge { display: inline-block; padding: 1px 9px; border-radius: 10px; font-size: .82rem; white-space: nowrap; }
+  .b-未匯款 { background: var(--s-no); } .b-待核對 { background: var(--s-wait); }
+  .b-已確認 { background: var(--s-ok); } .b-已取消 { background: var(--s-cancel); }
+  .b-match { background: var(--s-ok); } .b-warn { background: var(--s-wait); } .b-bad { background: var(--s-no); } .b-info { background: #e3eef3; }
+  .tickets { font-size: .82rem; color: #444; white-space: nowrap; }
+  .muted { color: var(--muted); font-size: .85rem; }
+  .msg { padding: 10px; border-radius: 6px; margin-top: 10px; white-space: pre-line; display: none; }
+  .msg.ok { display: block; background: #e6f4ea; color: #1e6b34; }
+  .msg.err { display: block; background: #fdecea; color: #a12622; }
+  .field { display: block; margin-bottom: 12px; }
+  .field > span { display: block; font-size: .9rem; margin-bottom: 4px; }
+  .field input, .field select { width: 100%; }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .chips button { padding: 5px 10px; font-size: .85rem; }
+  #login { max-width: 360px; margin: 60px auto; }
+  .ph { font-size: .8rem; color: var(--muted); }
+  .ph code { background: #f0f0f3; padding: 1px 5px; border-radius: 4px; margin-right: 4px; }
+  @media (max-width: 600px) { .bar-row { grid-template-columns: 60px 1fr 96px; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>聲動室內樂團｜訂票後台管理</h1>
+  <span class="meta" id="metaInfo"></span>
+  <button type="button" id="refreshBtn" hidden>重新整理</button>
+  <button type="button" id="logoutBtn" hidden>登出</button>
+</header>
+
+<main>
+  <!-- 登入 -->
+  <form id="login" class="card">
+    <h2>管理者登入</h2>
+    <label class="field"><span>管理密碼</span><input type="password" id="adminKey" autocomplete="current-password"></label>
+    <button type="submit" id="loginBtn">登入</button>
+    <div id="loginMsg" class="msg"></div>
+  </form>
+
+  <div id="app" hidden>
+    <nav class="tabs">
+      <button type="button" class="on" data-tab="pOverview">總覽統計</button>
+      <button type="button" data-tab="pList">訂單清單</button>
+      <button type="button" data-tab="pMail">寄送郵件</button>
+      <button type="button" data-tab="pRecon">匯款比對</button>
+    </nav>
+
+    <!-- 總覽統計 -->
+    <section id="pOverview" class="panel">
+      <div class="kpis" id="kpis"></div>
+      <div class="card">
+        <h2>付款狀態</h2>
+        <div class="stack" id="statusStack"></div>
+        <div class="legend" id="statusLegend"></div>
+      </div>
+      <div class="card">
+        <h2>各場次預計營收（早鳥 7 折後，不含已取消）</h2>
+        <div id="revBars"></div>
+      </div>
+      <div class="grid3" id="sessCards"></div>
+    </section>
+
+    <!-- 訂單清單 -->
+    <section id="pList" class="panel" hidden>
+      <div class="card">
+        <div class="toolbar">
+          <select id="fSession">
+            <option value="">全部場次</option>
+            <option value="1">場次一｜台中中山堂 11/28</option>
+            <option value="2">場次二｜高雄至善廳 12/26 14:30</option>
+            <option value="3">場次三｜高雄至善廳 12/26 19:00</option>
+          </select>
+          <select id="fStatus">
+            <option value="">全部狀態</option>
+            <option value="unpaid">尚未繳款（未匯款＋待核對）</option>
+            <option value="nolast5">未填匯款資料</option>
+            <option value="未匯款">未匯款</option>
+            <option value="待核對">待核對</option>
+            <option value="已確認">已確認</option>
+            <option value="已取消">已取消</option>
+          </select>
+          <input type="search" id="fText" class="grow" placeholder="搜尋姓名、電話、Email、訂單編號、樂團">
+        </div>
+        <div class="toolbar">
+          <span class="muted" id="listCount"></span>
+          <button type="button" class="sec" id="mailSelectedBtn">寄信給勾選的訂單</button>
+          <select id="bulkStatus">
+            <option value="">變更勾選訂單狀態為…</option>
+            <option>未匯款</option><option>待核對</option><option>已確認</option><option>已取消</option>
+          </select>
+        </div>
+        <div class="tbl-wrap">
+          <table class="list">
+            <thead><tr>
+              <th><input type="checkbox" id="checkAll" aria-label="全選"></th>
+              <th>訂單編號</th><th>訂購時間</th><th>姓名／聯絡</th><th>票券</th>
+              <th>金額</th><th>後五碼</th><th>狀態</th>
+            </tr></thead>
+            <tbody id="listBody"></tbody>
+          </table>
+        </div>
+        <div id="listMsg" class="msg"></div>
+      </div>
+    </section>
+
+    <!-- 寄送郵件 -->
+    <section id="pMail" class="panel" hidden>
+      <div class="card">
+        <h2>寄送郵件</h2>
+        <label class="field"><span>收件對象</span>
+          <select id="mTarget">
+            <option value="all">全部有效訂單（不含已取消）</option>
+            <option value="s1">場次一購票者｜台中中山堂 11/28 19:30</option>
+            <option value="s2">場次二購票者｜高雄至善廳 12/26 14:30</option>
+            <option value="s3">場次三購票者｜高雄至善廳 12/26 19:00</option>
+            <option value="nolast5">尚未填寫匯款資料</option>
+            <option value="unpaid">尚未繳款（未匯款＋待核對）</option>
+            <option value="selected">訂單清單中勾選的訂單</option>
+          </select>
+        </label>
+        <p class="muted" id="mCount"></p>
+        <div class="chips">
+          <span class="muted" style="align-self:center;">套用範本：</span>
+          <button type="button" class="sec" data-tpl="remind">演出提醒</button>
+          <button type="button" class="sec" data-tpl="nolast5">提醒填寫匯款資料</button>
+          <button type="button" class="sec" data-tpl="unpaid">催繳提醒</button>
+          <button type="button" class="sec" data-tpl="confirmed">付款確認通知</button>
+        </div>
+        <label class="field"><span>主旨</span><input type="text" id="mSubject"></label>
+        <label class="field"><span>內容</span><textarea id="mBody" rows="10"></textarea></label>
+        <p class="ph">可用變數：<code>{姓名}</code><code>{訂單編號}</code><code>{總金額}</code><code>{付款狀態}</code><code>{場次}</code><code>{訂單連結}</code>（訂單連結會變成按鈕）</p>
+        <button type="button" id="mSendBtn">寄出</button>
+        <div id="mMsg" class="msg"></div>
+      </div>
+    </section>
+
+    <!-- 匯款比對 -->
+    <section id="pRecon" class="panel" hidden>
+      <div class="card">
+        <h2>1. 匯入銀行入帳資料</h2>
+        <p class="muted">從網路銀行匯出交易明細 CSV 後上傳，或直接貼上（第一列需為欄位名稱）。資料只在瀏覽器中處理，不會上傳。</p>
+        <div class="toolbar"><input type="file" id="rFile" accept=".csv,.txt"></div>
+        <textarea id="rText" rows="6" placeholder="例如：&#10;日期,轉出帳號,金額&#10;2026/10/05,0123456712345,1540"></textarea>
+        <div class="toolbar" style="margin-top:10px;">
+          <button type="button" class="sec" id="rParseBtn">讀取資料</button>
+          <span class="muted" id="rInfo"></span>
+        </div>
+        <div id="rCols" hidden>
+          <div class="toolbar">
+            <label>帳號欄（取後五碼）<select id="rColAcct"></select></label>
+            <label>金額欄 <select id="rColAmt"></select></label>
+            <label>日期欄（選填）<select id="rColDate"></select></label>
+            <button type="button" id="rMatchBtn">開始比對</button>
+          </div>
+        </div>
+      </div>
+      <div class="card" id="rResultCard" hidden>
+        <h2>2. 比對結果</h2>
+        <div class="legend" id="rSummary"></div>
+        <div class="tbl-wrap" style="margin-top:12px;">
+          <table class="list">
+            <thead><tr><th></th><th>結果</th><th>入帳後五碼</th><th>入帳金額</th><th>日期</th><th>對應訂單</th><th>訂單金額</th><th>目前狀態</th></tr></thead>
+            <tbody id="rBody"></tbody>
+          </table>
+        </div>
+        <div class="toolbar" style="margin-top:12px;">
+          <button type="button" id="rConfirmBtn">將勾選的訂單標記為「已確認」</button>
+        </div>
+        <div id="rMsg" class="msg"></div>
+        <h3 style="margin-top:16px;">已填後五碼但未在入帳資料中找到</h3>
+        <div class="tbl-wrap"><table class="list"><thead><tr><th>訂單編號</th><th>姓名</th><th>後五碼</th><th>金額</th><th>狀態</th></tr></thead><tbody id="rMissing"></tbody></table></div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+/* ====== 設定：與 index.html 使用同一個 Apps Script 網址 ====== */
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnHdSESDcXqlVDFINqlSxTUdHUMbbqwuxqRkZFrJu1JmBaGSDCkUQ7ZcdhNnV5EKQt/exec';
+
+const SESSIONS = {
+  1: { name: '場次一｜台中中山堂', time: '2026/11/28（六）19:30', theme: '聲動漫 ACG 音樂祭', short: '台中 11/28' },
+  2: { name: '場次二｜高雄文化中心至善廳', time: '2026/12/26（六）14:30', theme: '聲之饗宴 宮崎駿動畫音樂會', short: '高雄 12/26 午' },
+  3: { name: '場次三｜高雄文化中心至善廳', time: '2026/12/26（六）19:00', theme: '聲動漫 ACG 音樂祭', short: '高雄 12/26 晚' }
+};
+const PRICES = [600, 800, 1000, 1200];
+const PRICE_COLORS = { 600: 'var(--c3)', 800: 'var(--c4)', 1000: 'var(--c2)', 1200: 'var(--c1)' };
+const STATUS_LIST = ['未匯款', '待核對', '已確認', '已取消'];
+const STATUS_COLORS = { '未匯款': 'var(--s-no)', '待核對': 'var(--s-wait)', '已確認': 'var(--s-ok)', '已取消': 'var(--s-cancel)' };
+const DISCOUNT = 0.7;
+
+const $ = id => document.getElementById(id);
+const fmt = n => Number(n || 0).toLocaleString('zh-TW');
+const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+let KEY = '';
+let ORDERS = [];
+let QUOTA = null;
+const selected = new Set();
+
+function showMsg(id, text, ok) { const m = $(id); m.textContent = text; m.className = 'msg ' + (ok ? 'ok' : 'err'); }
+function clearMsg(id) { $(id).className = 'msg'; }
+
+async function api(body) {
+  const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(Object.assign({ key: KEY }, body)) });
+  let r;
+  try { r = await res.json(); } catch (_) { throw new Error('伺服器回應異常（HTTP ' + res.status + '）'); }
+  if (!r.ok) throw new Error(r.error || '伺服器錯誤');
+  return r;
+}
+
+/* ---------- 登入 ---------- */
+try { KEY = sessionStorage.getItem('adminKey') || ''; } catch (_) {}
+
+$('login').addEventListener('submit', async e => {
+  e.preventDefault();
+  KEY = $('adminKey').value.trim();
+  if (!KEY) return showMsg('loginMsg', '請輸入管理密碼', false);
+  $('loginBtn').disabled = true;
+  showMsg('loginMsg', '登入中…', true);
+  try { await loadData(); }
+  catch (ex) { showMsg('loginMsg', ex.message, false); }
+  finally { $('loginBtn').disabled = false; }
+});
+
+$('logoutBtn').addEventListener('click', () => {
+  try { sessionStorage.removeItem('adminKey'); } catch (_) {}
+  location.reload();
+});
+$('refreshBtn').addEventListener('click', () => loadData().catch(ex => alert(ex.message)));
+
+async function loadData() {
+  const r = await api({ action: 'adminData' });
+  try { sessionStorage.setItem('adminKey', KEY); } catch (_) {}
+  ORDERS = r.orders;
+  QUOTA = r.quota;
+  $('login').hidden = true;
+  $('app').hidden = false;
+  $('refreshBtn').hidden = false;
+  $('logoutBtn').hidden = false;
+  $('metaInfo').textContent = `共 ${ORDERS.length} 筆訂單｜今日剩餘寄信額度 ${QUOTA} 封｜更新於 ${new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' })}`;
+  renderOverview();
+  renderList();
+  updateMailCount();
+}
+
+/* ---------- 分頁 ---------- */
+document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
+function showTab(id) {
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === id));
+  document.querySelectorAll('.panel').forEach(p => p.hidden = p.id !== id);
+  if (id === 'pMail') updateMailCount();
+}
+
+/* ---------- 統計 ---------- */
+const active = o => o.status !== '已取消';
+const sessRevenue = s => Math.round(s.items.reduce((a, i) => a + i.price * i.qty, 0) * DISCOUNT);
+
+function computeStats() {
+  const st = { orders: 0, tickets: 0, revenue: 0, confirmedRev: 0, status: {}, sess: {} };
+  STATUS_LIST.forEach(s => st.status[s] = { n: 0, amt: 0 });
+  [1, 2, 3].forEach(n => {
+    st.sess[n] = { orders: 0, tickets: 0, revenue: 0, paidRevenue: 0, tiers: {} };
+    PRICES.forEach(p => st.sess[n].tiers[p] = { orders: 0, tickets: 0, revenue: 0 });
+  });
+  ORDERS.forEach(o => {
+    const s = st.status[o.status] || (st.status[o.status] = { n: 0, amt: 0 });
+    s.n++; s.amt += o.total;
+    if (!active(o)) return;
+    st.orders++; st.revenue += o.total;
+    if (o.status === '已確認') st.confirmedRev += o.total;
+    o.sessions.forEach(x => {
+      const S = st.sess[x.session]; if (!S) return;
+      S.orders++;
+      const rev = sessRevenue(x);
+      S.revenue += rev;
+      if (o.status === '已確認') S.paidRevenue += rev;
+      x.items.forEach(i => {
+        S.tickets += i.qty; st.tickets += i.qty;
+        const T = S.tiers[i.price] || (S.tiers[i.price] = { orders: 0, tickets: 0, revenue: 0 });
+        T.orders++; T.tickets += i.qty; T.revenue += Math.round(i.price * i.qty * DISCOUNT);
+      });
+    });
+  });
+  return st;
+}
+
+function renderOverview() {
+  const st = computeStats();
+  const unpaid = st.status['未匯款'].n + st.status['待核對'].n;
+  const kpi = (l, v, s) => `<div class="kpi"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s || ''}</div></div>`;
+  $('kpis').innerHTML =
+    kpi('有效訂單', fmt(st.orders), `另有已取消 ${st.status['已取消'].n} 筆`) +
+    kpi('總票數', fmt(st.tickets) + ' 張') +
+    kpi('預計營收', 'NT$' + fmt(st.revenue), '早鳥 7 折後') +
+    kpi('已確認收款', 'NT$' + fmt(st.confirmedRev), st.revenue ? `佔預計營收 ${Math.round(st.confirmedRev / st.revenue * 100)}%` : '') +
+    kpi('尚未繳款', fmt(unpaid) + ' 筆', `其中待核對 ${st.status['待核對'].n} 筆`);
+
+  // 付款狀態堆疊條
+  const total = ORDERS.length || 1;
+  $('statusStack').innerHTML = STATUS_LIST.map(s =>
+    `<div style="width:${st.status[s].n / total * 100}%;background:${STATUS_COLORS[s]}" title="${s} ${st.status[s].n} 筆"></div>`).join('');
+  $('statusLegend').innerHTML = STATUS_LIST.map(s =>
+    `<span><i style="background:${STATUS_COLORS[s]}"></i>${s} <b>${st.status[s].n}</b> 筆（NT$${fmt(st.status[s].amt)}）</span>`).join('');
+
+  // 各場次營收
+  const maxRev = Math.max(1, ...[1, 2, 3].map(n => st.sess[n].revenue));
+  $('revBars').innerHTML = [1, 2, 3].map(n => {
+    const S = st.sess[n];
+    return `<div class="bar-row" style="grid-template-columns:110px 1fr 150px;">
+      <span>${SESSIONS[n].short}</span>
+      <div class="bar-track" title="已確認 NT$${fmt(S.paidRevenue)}">
+        <div class="bar-fill" style="width:${S.revenue / maxRev * 100}%;background:linear-gradient(90deg,var(--main) ${S.revenue ? S.paidRevenue / S.revenue * 100 : 0}%,#e8b3a5 0)"></div></div>
+      <span class="n">NT$${fmt(S.revenue)}</span></div>`;
+  }).join('') + `<div class="legend"><span><i style="background:var(--main)"></i>已確認收款</span><span><i style="background:#e8b3a5"></i>尚未確認</span></div>`;
+
+  // 各場次卡片
+  $('sessCards').innerHTML = [1, 2, 3].map(n => {
+    const S = st.sess[n], maxT = Math.max(1, ...PRICES.map(p => S.tiers[p].tickets));
+    return `<div class="card">
+      <div class="sess-head"><div><h3>${SESSIONS[n].name}</h3>
+        <div class="sub">${SESSIONS[n].time}｜${SESSIONS[n].theme}</div></div></div>
+      <div class="nums">
+        <div>訂購人數<b>${fmt(S.orders)}</b></div>
+        <div>票數<b>${fmt(S.tickets)}</b></div>
+        <div>預計營收<b>NT$${fmt(S.revenue)}</b></div>
+      </div>
+      <div class="muted" style="margin-bottom:4px;">各票區：張數｜訂購人數</div>
+      ${PRICES.map(p => `<div class="bar-row">
+        <span>NT$${fmt(p)}</span>
+        <div class="bar-track"><div class="bar-fill" style="width:${S.tiers[p].tickets / maxT * 100}%;background:${PRICE_COLORS[p]}"></div></div>
+        <span class="n">${S.tiers[p].tickets} 張｜${S.tiers[p].orders} 人</span></div>`).join('')}
+      <div class="toolbar" style="margin:12px 0 0;">
+        <button type="button" class="sec" data-goto-list="${n}">查看訂單</button>
+        <button type="button" class="sec" data-remind="${n}">寄演出提醒</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+$('sessCards').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.gotoList) { $('fSession').value = b.dataset.gotoList; $('fStatus').value = ''; renderList(); showTab('pList'); }
+  if (b.dataset.remind) { $('mTarget').value = 's' + b.dataset.remind; applyTemplate('remind'); showTab('pMail'); }
+});
+
+/* ---------- 訂單清單 ---------- */
+function matchFilter(o, sess, status, text) {
+  if (sess && !o.sessions.some(x => String(x.session) === sess)) return false;
+  if (status === 'unpaid' && !(o.status === '未匯款' || o.status === '待核對')) return false;
+  if (status === 'nolast5' && !(o.status === '未匯款' && !o.last5)) return false;
+  if (STATUS_LIST.includes(status) && o.status !== status) return false;
+  if (text) {
+    const hay = [o.orderId, o.name, o.phone, o.email, o.band, o.last5].join(' ').toLowerCase();
+    if (!hay.includes(text.toLowerCase())) return false;
+  }
+  return true;
+}
+function filteredOrders() {
+  return ORDERS.filter(o => matchFilter(o, $('fSession').value, $('fStatus').value, $('fText').value.trim()));
+}
+function ticketText(o) {
+  return o.sessions.map(x => `<div><b>${SESSIONS[x.session].short}</b> ` +
+    x.items.map(i => `${fmt(i.price)}×${i.qty}`).join('、') + '</div>').join('');
+}
+
+function renderList() {
+  const list = filteredOrders();
+  $('listCount').textContent = `顯示 ${list.length} 筆｜已勾選 ${selected.size} 筆`;
+  $('listBody').innerHTML = list.map(o => `<tr>
+    <td><input type="checkbox" class="rowChk" data-id="${esc(o.orderId)}" ${selected.has(o.orderId) ? 'checked' : ''}></td>
+    <td>${esc(o.orderId)}${o.note ? `<div class="muted" title="${esc(o.note)}">📝 備註</div>` : ''}</td>
+    <td class="muted">${esc(o.time)}</td>
+    <td>${esc(o.name)}<div class="muted">${esc(o.phone)}<br>${esc(o.email)}<br>樂團：${esc(o.band)}</div></td>
+    <td class="tickets">${ticketText(o)}</td>
+    <td class="num">NT$${fmt(o.total)}</td>
+    <td>${esc(o.last5) || '<span class="muted">未填</span>'}</td>
+    <td><select class="rowStatus" data-id="${esc(o.orderId)}" aria-label="付款狀態">
+      ${STATUS_LIST.map(s => `<option ${s === o.status ? 'selected' : ''}>${s}</option>`).join('')}</select>
+      <div><span class="badge b-${esc(o.status)}">${esc(o.status)}</span></div></td>
+  </tr>`).join('') || '<tr><td colspan="8" class="muted">沒有符合條件的訂單</td></tr>';
+  $('checkAll').checked = list.length > 0 && list.every(o => selected.has(o.orderId));
+}
+
+['fSession', 'fStatus'].forEach(id => $(id).addEventListener('change', renderList));
+$('fText').addEventListener('input', renderList);
+$('checkAll').addEventListener('change', e => {
+  filteredOrders().forEach(o => e.target.checked ? selected.add(o.orderId) : selected.delete(o.orderId));
+  renderList();
+});
+$('listBody').addEventListener('change', async e => {
+  const t = e.target;
+  if (t.classList.contains('rowChk')) {
+    t.checked ? selected.add(t.dataset.id) : selected.delete(t.dataset.id);
+    $('listCount').textContent = `顯示 ${filteredOrders().length} 筆｜已勾選 ${selected.size} 筆`;
+  }
+  if (t.classList.contains('rowStatus')) {
+    const o = ORDERS.find(x => x.orderId === t.dataset.id);
+    if (!confirm(`將訂單 ${o.orderId}（${o.name}）的狀態從「${o.status}」改為「${t.value}」？`)) { t.value = o.status; return; }
+    await setStatus([{ orderId: o.orderId, status: t.value, note: `${today()} 後台改為${t.value}` }], 'listMsg');
+  }
+});
+$('bulkStatus').addEventListener('change', async e => {
+  const status = e.target.value; e.target.value = '';
+  if (!status) return;
+  if (!selected.size) return showMsg('listMsg', '請先勾選訂單', false);
+  if (!confirm(`將勾選的 ${selected.size} 筆訂單狀態改為「${status}」？`)) return;
+  await setStatus([...selected].map(id => ({ orderId: id, status, note: `${today()} 後台改為${status}` })), 'listMsg');
+});
+$('mailSelectedBtn').addEventListener('click', () => {
+  if (!selected.size) return showMsg('listMsg', '請先勾選訂單', false);
+  $('mTarget').value = 'selected'; showTab('pMail');
+});
+
+function today() { const d = new Date(); return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`; }
+
+async function setStatus(updates, msgId) {
+  try {
+    const r = await api({ action: 'adminSetStatus', updates });
+    await loadData();
+    showMsg(msgId, `已更新 ${r.updated} 筆訂單狀態`, true);
+  } catch (ex) {
+    showMsg(msgId, '更新失敗：' + ex.message, false);
+    renderList();
+  }
+}
+
+/* ---------- 寄送郵件 ---------- */
+const TEMPLATES = {
+  remind: () => {
+    const v = $('mTarget').value, n = { s1: 1, s2: 2, s3: 3 }[v];
+    const S = n ? SESSIONS[n] : null;
+    return {
+      subject: S ? `【演出提醒】${S.theme}｜${S.time}` : '【演出提醒】聲動室內樂團音樂會',
+      body: `{姓名} 您好：\n\n感謝您購買聲動室內樂團的音樂會門票，演出即將到來！\n\n` +
+        (S ? `演出：${S.theme}\n時間：${S.time}\n地點：${S.name.split('｜')[1]}\n` : `您訂購的場次：{場次}\n`) +
+        `訂單編號：{訂單編號}\n\n請提早 30 分鐘入場，入場時出示訂單編號即可。\n\n{訂單連結}`
+    };
+  },
+  nolast5: () => ({
+    subject: '【提醒】請填寫匯款資料｜訂單 {訂單編號}',
+    body: `{姓名} 您好：\n\n您的訂單 {訂單編號}（金額 {總金額}）尚未填寫匯款帳號後五碼。\n完成匯款後，請點下方按鈕填寫，以便我們核對入帳。\n\n{訂單連結}`
+  }),
+  unpaid: () => ({
+    subject: '【繳費提醒】訂單 {訂單編號}',
+    body: `{姓名} 您好：\n\n您的訂單 {訂單編號}（金額 {總金額}）目前狀態為「{付款狀態}」，我們尚未確認收到款項。\n若已匯款，請確認已填寫匯款帳號後五碼；若尚未匯款，請盡快完成，以保留您的座位。\n\n{訂單連結}`
+  }),
+  confirmed: () => ({
+    subject: '【付款確認】訂單 {訂單編號}',
+    body: `{姓名} 您好：\n\n我們已確認收到您訂單 {訂單編號} 的款項 {總金額}，感謝您！\n您訂購的場次：{場次}\n\n{訂單連結}`
+  })
+};
+function applyTemplate(name) { const t = TEMPLATES[name](); $('mSubject').value = t.subject; $('mBody').value = t.body; }
+document.querySelectorAll('[data-tpl]').forEach(b => b.addEventListener('click', () => applyTemplate(b.dataset.tpl)));
+
+function mailRecipients() {
+  const v = $('mTarget').value;
+  if (v === 'selected') return ORDERS.filter(o => selected.has(o.orderId));
+  return ORDERS.filter(o => {
+    if (!active(o)) return false;
+    if (v === 'all') return true;
+    if (v[0] === 's') return o.sessions.some(x => 's' + x.session === v);
+    if (v === 'nolast5') return o.status === '未匯款' && !o.last5;
+    if (v === 'unpaid') return o.status === '未匯款' || o.status === '待核對';
+    return false;
+  });
+}
+function updateMailCount() {
+  const n = mailRecipients().length;
+  $('mCount').textContent = `收件人：${n} 位｜今日剩餘寄信額度：${QUOTA ?? '-'} 封` + (QUOTA != null && n > QUOTA ? '（額度不足，無法寄出）' : '');
+}
+$('mTarget').addEventListener('change', updateMailCount);
+
+$('mSendBtn').addEventListener('click', async () => {
+  clearMsg('mMsg');
+  const list = mailRecipients();
+  const subject = $('mSubject').value.trim(), body = $('mBody').value.trim();
+  if (!list.length) return showMsg('mMsg', '沒有符合的收件人', false);
+  if (!subject || !body) return showMsg('mMsg', '請填寫主旨與內容', false);
+  if (QUOTA != null && list.length > QUOTA) return showMsg('mMsg', `今日剩餘額度 ${QUOTA} 封，不足以寄送 ${list.length} 封`, false);
+  if (!confirm(`確定寄出給 ${list.length} 位訂購者？\n主旨：${subject}`)) return;
+  $('mSendBtn').disabled = true;
+  showMsg('mMsg', `寄送中，共 ${list.length} 封，請勿關閉頁面…`, true);
+  try {
+    const r = await api({ action: 'adminMail', orderIds: list.map(o => o.orderId), subject, body });
+    QUOTA = r.quota;
+    updateMailCount();
+    showMsg('mMsg', `已寄出 ${r.sent} 封` + (r.failed.length ? `\n失敗 ${r.failed.length} 封：\n` +
+      r.failed.map(f => `${f.orderId}：${f.error}`).join('\n') : ''), !r.failed.length);
+  } catch (ex) {
+    showMsg('mMsg', '寄送失敗：' + ex.message, false);
+  } finally {
+    $('mSendBtn').disabled = false;
+  }
+});
+
+/* ---------- 匯款比對 ---------- */
+let BANK = { header: [], rows: [] };
+
+function parseCSV(text) {
+  const rows = []; let row = [], cur = '', q = false;
+  text = text.replace(/^﻿/, '');
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"' && text[i + 1] === '"') { cur += '"'; i++; }
+      else if (c === '"') q = false;
+      else cur += c;
+    } else if (c === '"') q = true;
+    else if (c === ',' || c === '\t') { row.push(cur.trim()); cur = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && text[i + 1] === '\n') i++;
+      row.push(cur.trim()); cur = '';
+      if (row.some(x => x !== '')) rows.push(row);
+      row = [];
+    } else cur += c;
+  }
+  row.push(cur.trim());
+  if (row.some(x => x !== '')) rows.push(row);
+  return rows;
+}
+
+$('rFile').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let text = reader.result;
+    // 若以 UTF-8 讀取出現亂碼，改用 Big5（台灣銀行常見編碼）重讀
+    if (/�/.test(text)) {
+      const r2 = new FileReader();
+      r2.onload = () => { $('rText').value = r2.result; parseBank(); };
+      r2.readAsText(f, 'big5');
+    } else { $('rText').value = text; parseBank(); }
+  };
+  reader.readAsText(f, 'utf-8');
+});
+$('rParseBtn').addEventListener('click', parseBank);
+
+function parseBank() {
+  const rows = parseCSV($('rText').value);
+  if (rows.length < 2) { $('rInfo').textContent = '資料不足：需要欄位名稱列與至少一筆資料'; $('rCols').hidden = true; return; }
+  BANK = { header: rows[0], rows: rows.slice(1) };
+  $('rInfo').textContent = `讀取到 ${BANK.rows.length} 筆入帳資料、${BANK.header.length} 個欄位`;
+  const opts = (none) => (none ? '<option value="">（無）</option>' : '') +
+    BANK.header.map((h, i) => `<option value="${i}">${esc(h || '第' + (i + 1) + '欄')}</option>`).join('');
+  $('rColAcct').innerHTML = opts(false); $('rColAmt').innerHTML = opts(false); $('rColDate').innerHTML = opts(true);
+  const guess = re => BANK.header.findIndex(h => re.test(h));
+  const a = guess(/帳號|帳戶|後五碼|account/i), m = guess(/金額|存入|入帳|amount/i), d = guess(/日期|時間|date/i);
+  if (a >= 0) $('rColAcct').value = a;
+  if (m >= 0) $('rColAmt').value = m;
+  if (d >= 0) $('rColDate').value = d;
+  $('rCols').hidden = false;
+}
+
+$('rMatchBtn').addEventListener('click', () => {
+  const ca = +$('rColAcct').value, cm = +$('rColAmt').value, cd = $('rColDate').value;
+  const bank = BANK.rows.map(r => ({
+    last5: String(r[ca] || '').replace(/\D/g, '').slice(-5),
+    amount: Math.round(Number(String(r[cm] || '').replace(/[^\d.-]/g, '')) || 0),
+    date: cd === '' ? '' : (r[+cd] || '')
+  })).filter(b => b.last5 || b.amount);
+
+  const pool = ORDERS.filter(o => o.status !== '已取消');
+  const usedOrders = new Set();
+  const results = bank.map(b => {
+    const byLast5 = pool.filter(o => o.last5 && o.last5 === b.last5);
+    const exact = byLast5.filter(o => o.total === b.amount);
+    let kind, order = null, cands = [];
+    if (exact.length === 1) {
+      order = exact[0];
+      kind = order.status === '已確認' ? 'done' : 'match';
+    } else if (exact.length > 1) { kind = 'multi'; cands = exact; }
+    else if (byLast5.length) { kind = 'amount'; cands = byLast5; }
+    else {
+      cands = pool.filter(o => !o.last5 && o.status === '未匯款' && o.total === b.amount);
+      kind = cands.length ? 'amountOnly' : 'none';
+    }
+    if (order) usedOrders.add(order.orderId);
+    cands.forEach(o => usedOrders.add(o.orderId));
+    return { b, kind, order, cands };
+  });
+  renderRecon(results, pool.filter(o => o.last5 && o.status !== '已確認' && !usedOrders.has(o.orderId)));
+});
+
+const KIND = {
+  match: ['相符', 'b-match'], done: ['已確認過', 'b-info'], multi: ['多筆訂單相符', 'b-warn'],
+  amount: ['後五碼相符，金額不符', 'b-warn'], amountOnly: ['僅金額相符（訂單未填後五碼）', 'b-warn'], none: ['找不到對應訂單', 'b-bad']
+};
+
+function renderRecon(results, missing) {
+  const count = k => results.filter(r => r.kind === k).length;
+  $('rSummary').innerHTML = Object.keys(KIND).map(k =>
+    `<span><span class="badge ${KIND[k][1]}">${KIND[k][0]}</span> ${count(k)} 筆</span>`).join('');
+  const orderCell = o => `${esc(o.orderId)}<div class="muted">${esc(o.name)}｜後五碼 ${esc(o.last5) || '未填'}</div>`;
+  $('rBody').innerHTML = results.map(r => {
+    const list = r.order ? [r.order] : r.cands;
+    const chk = r.kind === 'match' ? `<input type="checkbox" class="rChk" data-id="${esc(r.order.orderId)}" data-amt="${r.b.amount}" checked>`
+      : (list.length === 1 && r.kind !== 'done' ? `<input type="checkbox" class="rChk" data-id="${esc(list[0].orderId)}" data-amt="${r.b.amount}">` : '');
+    return `<tr>
+      <td>${chk}</td>
+      <td><span class="badge ${KIND[r.kind][1]}">${KIND[r.kind][0]}</span></td>
+      <td>${esc(r.b.last5)}</td>
+      <td class="num">NT$${fmt(r.b.amount)}</td>
+      <td class="muted">${esc(r.b.date)}</td>
+      <td>${list.map(orderCell).join('<hr style="border:none;border-top:1px dashed #ddd;margin:4px 0;">') || '<span class="muted">—</span>'}</td>
+      <td class="num">${list.map(o => 'NT$' + fmt(o.total)).join('<br>') || '—'}</td>
+      <td>${list.map(o => `<span class="badge b-${esc(o.status)}">${esc(o.status)}</span>`).join('<br>') || '—'}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="8" class="muted">沒有入帳資料</td></tr>';
+  $('rMissing').innerHTML = missing.map(o => `<tr><td>${esc(o.orderId)}</td><td>${esc(o.name)}</td><td>${esc(o.last5)}</td>
+    <td class="num">NT$${fmt(o.total)}</td><td><span class="badge b-${esc(o.status)}">${esc(o.status)}</span></td></tr>`).join('')
+    || '<tr><td colspan="5" class="muted">無</td></tr>';
+  clearMsg('rMsg');
+  $('rResultCard').hidden = false;
+}
+
+$('rConfirmBtn').addEventListener('click', async () => {
+  const chks = [...document.querySelectorAll('.rChk:checked')];
+  if (!chks.length) return showMsg('rMsg', '請先勾選要確認的訂單', false);
+  const ids = [...new Set(chks.map(c => c.dataset.id))];
+  if (!confirm(`將 ${ids.length} 筆訂單標記為「已確認」？`)) return;
+  const updates = ids.map(id => {
+    const amt = chks.find(c => c.dataset.id === id).dataset.amt;
+    return { orderId: id, status: '已確認', note: `${today()} 匯款比對確認，入帳 NT$${fmt(amt)}` };
+  });
+  await setStatus(updates, 'rMsg');
+  $('rMatchBtn').click();
+  showMsg('rMsg', `已將 ${ids.length} 筆訂單標記為「已確認」`, true);
+});
+
+/* ---------- 啟動：若本次瀏覽已登入過則自動載入 ---------- */
+if (KEY) loadData().catch(() => { KEY = ''; try { sessionStorage.removeItem('adminKey'); } catch (_) {} });
+</script>
+</body>
+</html>
