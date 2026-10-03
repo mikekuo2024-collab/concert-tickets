@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>音樂會門票訂購</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, "PingFang TC", "Microsoft JhengHei", sans-serif; background: #f4f4f6; color: #222; line-height: 1.6; }
+  main { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { margin: 0 0 4px; font-size: 1.6rem; }
+  .note { margin: 0 0 20px; color: #b4462a; font-weight: 600; }
+  fieldset { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin: 0 0 16px; }
+  legend { font-weight: 700; padding: 0 6px; }
+  label.field { display: block; margin-bottom: 12px; }
+  label.field span { display: block; font-size: .95rem; margin-bottom: 4px; }
+  input[type=text], input[type=tel], input[type=email], input[type=number] { width: 100%; padding: 8px 10px; border: 1px solid #bbb; border-radius: 6px; font-size: 1rem; }
+  .req { color: #c00; }
+  .session { border: 1px solid #e2e2e2; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+  .session-head { display: flex; gap: 8px; align-items: flex-start; cursor: pointer; }
+  .session-head input { margin-top: 6px; transform: scale(1.2); }
+  .session-info { font-size: .92rem; color: #555; }
+  .session-body { margin-top: 12px; padding-top: 12px; border-top: 1px dashed #ccc; }
+  .session.active { border-color: #b4462a; background: #fff8f5; }
+  .tier { padding: 8px 0; border-bottom: 1px solid #f0f0f0; }
+  .tier-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .tier-row label { min-width: 90px; cursor: pointer; }
+  .tier-row input[type=number] { width: 80px; }
+  .seats { margin: 6px 0 0 24px; font-size: .9rem; }
+  .seats .seat { display: flex; align-items: center; gap: 6px; margin: 4px 0; flex-wrap: wrap; }
+  .seats input { width: 64px !important; padding: 4px 6px !important; }
+  .hint { font-size: .85rem; color: #777; margin: 8px 0 0; }
+  .subtotal { margin-top: 10px; text-align: right; }
+  .subtotal s { color: #999; margin-right: 6px; }
+  .subtotal b { color: #b4462a; font-size: 1.1rem; }
+  .grand { background: #fff; border: 2px solid #b4462a; border-radius: 8px; padding: 12px 16px; font-size: 1.15rem; text-align: right; margin-bottom: 16px; }
+  .grand b { color: #b4462a; }
+  button { width: 100%; padding: 12px; font-size: 1.1rem; background: #b4462a; color: #fff; border: 0; border-radius: 8px; cursor: pointer; }
+  button:disabled { background: #999; cursor: default; }
+  .msg { margin-top: 12px; padding: 10px; border-radius: 6px; display: none; white-space: pre-line; }
+  .msg.ok { display: block; background: #e6f4ea; color: #1e6b34; }
+  .msg.err { display: block; background: #fdecea; color: #a12622; }
+  .overlay { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: flex-start; justify-content: center; padding: 24px 16px; overflow-y: auto; z-index: 10; }
+  .overlay[hidden] { display: none; }
+  .dialog { background: #fff; border-radius: 10px; max-width: 560px; width: 100%; padding: 20px; }
+  .dialog h2 { margin: 0 0 12px; font-size: 1.25rem; }
+  .dialog table { width: 100%; border-collapse: collapse; font-size: .95rem; margin-bottom: 12px; }
+  .dialog th { text-align: left; color: #666; font-weight: normal; width: 7.5em; vertical-align: top; padding: 4px 0; }
+  .dialog td { padding: 4px 0; }
+  .dialog .c-sess { border-top: 1px solid #eee; padding: 10px 0; }
+  .dialog .c-sess ul { margin: 6px 0; padding-left: 20px; }
+  .dialog .c-sum { text-align: right; font-size: .92rem; }
+  .dialog .c-total { text-align: right; font-size: 1.15rem; border-top: 2px solid #b4462a; padding-top: 10px; margin-top: 4px; }
+  .dialog .c-total b { color: #b4462a; }
+  .dialog .c-note { font-size: .85rem; color: #666; margin: 10px 0 0; }
+  .dialog .btns { display: flex; gap: 10px; margin-top: 16px; }
+  .dialog .btns button { flex: 1; }
+  .dialog .btns .sec { background: #fff; color: #b4462a; border: 2px solid #b4462a; }
+  .view-card { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .view-card h2 { margin: 0 0 10px; font-size: 1.2rem; }
+  .view-card table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  .view-card th { text-align: left; color: #666; font-weight: normal; width: 7.5em; vertical-align: top; padding: 5px 0; }
+  .view-card td { padding: 5px 0; word-break: break-all; }
+  .view-card .det { border-top: 1px solid #eee; padding: 8px 0; font-size: .92rem; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: .9rem; }
+  .badge.s-未匯款 { background: #fde2e1; } .badge.s-待核對 { background: #fff4c2; }
+  .badge.s-已確認 { background: #d9f2dd; } .badge.s-已取消 { background: #e0e0e0; }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tabs .tab { width: auto; flex: 1; padding: 10px; font-size: 1rem; background: #fff; color: #b4462a; border: 2px solid #b4462a; }
+  .tabs .tab.on { background: #b4462a; color: #fff; }
+</style>
+</head>
+<body>
+<main>
+  <h1>音樂會門票訂購</h1>
+  <p class="note">早鳥優惠：全票價 7 折</p>
+
+  <section id="orderView" hidden>
+    <div class="view-card" id="viewBody">讀取訂單中…</div>
+    <form id="viewPayForm" class="view-card" novalidate hidden>
+      <h2>填寫匯款帳號後五碼</h2>
+      <label class="field"><span>匯款帳戶後五碼 <span class="req">*</span></span>
+        <input type="text" id="viewLast5" maxlength="5" inputmode="numeric" placeholder="5 位數字"></label>
+      <button type="submit" id="viewPayBtn">送出匯款資料</button>
+      <div id="viewMsg" class="msg"></div>
+    </form>
+    <p><a href="./">回到訂票首頁</a></p>
+  </section>
+
+  <nav class="tabs">
+    <button type="button" class="tab on" data-tab="orderForm">訂票</button>
+    <button type="button" class="tab" data-tab="payForm">補填匯款資料</button>
+  </nav>
+
+  <form id="payForm" novalidate hidden>
+    <fieldset>
+      <legend>補填匯款帳戶後五碼</legend>
+      <label class="field"><span>訂單編號 <span class="req">*</span></span>
+        <input type="text" id="payOrderId" placeholder="例：T261003002412KQ"></label>
+      <label class="field"><span>訂購時填寫的電話 <span class="req">*</span></span>
+        <input type="tel" id="payPhone"></label>
+      <label class="field"><span>匯款帳戶後五碼 <span class="req">*</span></span>
+        <input type="text" id="payLast5" maxlength="5" inputmode="numeric" placeholder="5 位數字"></label>
+    </fieldset>
+    <button type="submit" id="payBtn">送出匯款資料</button>
+    <div id="payMsg" class="msg"></div>
+  </form>
+
+  <form id="orderForm" novalidate>
+    <fieldset>
+      <legend>1–4. 訂購人資料</legend>
+      <label class="field"><span>訂票人姓名 <span class="req">*</span></span>
+        <input type="text" id="name" required></label>
+      <label class="field"><span>訂購人電話 <span class="req">*</span></span>
+        <input type="tel" id="phone" required placeholder="例：0912345678"></label>
+      <label class="field"><span>訂購人 Email <span class="req">*</span></span>
+        <input type="email" id="email" required></label>
+      <label class="field"><span>匯款帳戶後五碼（尚未匯款可留空，之後到「補填匯款資料」填寫）</span>
+        <input type="text" id="last5" maxlength="5" inputmode="numeric" placeholder="5 位數字"></label>
+    </fieldset>
+
+    <fieldset>
+      <legend>5. 選擇觀賞場次（可複選）<span class="req">*</span></legend>
+      <div id="sessions"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>6. 其他</legend>
+      <label class="field"><span>您參加的樂團名稱 <span class="req">*</span></span>
+        <input type="text" id="band" required></label>
+    </fieldset>
+
+    <div class="grand">全部場次早鳥總金額：<b>NT$<span id="grandTotal">0</span></b></div>
+
+    <button type="submit" id="submitBtn">送出訂單</button>
+    <div id="msg" class="msg"></div>
+  </form>
+</main>
+
+<div id="confirmBox" class="overlay" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+    <h2 id="confirmTitle">請確認訂購內容</h2>
+    <div id="confirmBody"></div>
+    <p class="c-note">確認送出後，系統會寄送訂購確認信到您填寫的 Email。</p>
+    <div class="btns">
+      <button type="button" class="sec" id="backBtn">返回修改</button>
+      <button type="button" id="confirmBtn">確認送出</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ====== 設定：貼上 Google Apps Script 部署後的「網頁應用程式網址」 ====== */
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwnHdSESDcXqlVDFINqlSxTUdHUMbbqwuxqRkZFrJu1JmBaGSDCkUQ7ZcdhNnV5EKQt/exec'; // 例：https://script.google.com/macros/s/XXXXXXXX/exec
+
+const DISCOUNT = 0.7;
+
+/* 訂單編號由前端產生：T + 年月日時分秒 + 2 碼英文，例 T261003002412KQ */
+function makeOrderId() {
+  const d = new Date(), z = n => String(n).padStart(2, '0');
+  const L = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  return 'T' + z(d.getFullYear() % 100) + z(d.getMonth() + 1) + z(d.getDate()) +
+    z(d.getHours()) + z(d.getMinutes()) + z(d.getSeconds()) +
+    L[Math.floor(Math.random() * L.length)] + L[Math.floor(Math.random() * L.length)];
+}
+
+/* 讀取 Apps Script 回應。
+ * 若 Google 回傳結果頁失敗（script.googleusercontent.com 回 404），
+ * 但請求已被轉址到該網域，代表 doPost 已執行，視為已送出。 */
+async function readResult(res) {
+  const text = await res.text();
+  try { return JSON.parse(text); }
+  catch (_) {
+    if (res.url.indexOf('script.googleusercontent.com') >= 0) return { ok: true, unverified: true };
+    throw new Error('伺服器回應異常（HTTP ' + res.status + '）');
+  }
+}
+const PRICES = [600, 800, 1000, 1200];
+const SESSIONS = [
+  { id: 1, venue: '台中中山堂',         time: '2026/11/28（六）19:30', theme: '聲動漫 ACG 音樂祭' },
+  { id: 2, venue: '高雄文化中心至善廳', time: '2026/12/26（六）14:30', theme: '聲之饗宴 宮崎駿動畫音樂會' },
+  { id: 3, venue: '高雄文化中心至善廳', time: '2026/12/26（六）19:00', theme: '聲動漫 ACG 音樂祭' }
+];
+const fmt = n => n.toLocaleString('zh-TW');
+const $ = id => document.getElementById(id);
+
+/* ---------- 產生場次區塊 ---------- */
+function renderSessions() {
+  const box = $('sessions');
+  SESSIONS.forEach((s, i) => {
+    const div = document.createElement('div');
+    div.className = 'session';
+    div.dataset.sid = s.id;
+    div.innerHTML = `
+      <label class="session-head">
+        <input type="checkbox" class="s-check">
+        <div><b>${['一','二','三'][i]}、${s.venue}</b>
+          <div class="session-info">時間：${s.time}<br>主題：${s.theme}</div></div>
+      </label>
+      <div class="session-body">
+        <div>票區（可複選）：</div>
+        ${PRICES.map(p => `
+          <div class="tier" data-price="${p}">
+            <div class="tier-row">
+              <label><input type="checkbox" class="t-check"> NT$${fmt(p)}</label>
+              張數：<input type="number" class="t-qty" min="1" max="20" value="1" disabled>
+            </div>
+            <div class="seats"></div>
+          </div>`).join('')}
+        <p class="hint">如需指定選位，請填寫每一張的「排、號」（未填寫則由主辦方代選）</p>
+        <div class="subtotal">原價 <s>NT$<span class="orig">0</span></s>
+          早鳥 7 折：<b>NT$<span class="disc">0</span></b></div>
+      </div>`;
+    box.appendChild(div);
+  });
+}
+
+/* ---------- 依張數產生排/號欄位（保留已填內容） ---------- */
+function renderSeats(tier) {
+  // 只增減差異的座位欄位，不重建已存在的欄位（避免使用者正在輸入時失去焦點）
+  const box = tier.querySelector('.seats');
+  const checked = tier.querySelector('.t-check').checked;
+  const qty = checked ? Math.min(20, Math.max(1, parseInt(tier.querySelector('.t-qty').value) || 1)) : 0;
+  while (box.children.length > qty) box.lastElementChild.remove();
+  for (let k = box.children.length; k < qty; k++) {
+    const d = document.createElement('div');
+    d.className = 'seat';
+    d.innerHTML = `第 ${k + 1} 張：<input type="text" class="row" maxlength="5">排
+      <input type="text" class="no" maxlength="5">號`;
+    box.appendChild(d);
+  }
+}
+
+/* ---------- 計算金額 ---------- */
+function calc() {
+  let grand = 0;
+  document.querySelectorAll('.session').forEach(sess => {
+    let orig = 0;
+    if (sess.querySelector('.s-check').checked) {
+      sess.querySelectorAll('.tier').forEach(t => {
+        if (t.querySelector('.t-check').checked) {
+          orig += Number(t.dataset.price) * (parseInt(t.querySelector('.t-qty').value) || 0);
+        }
+      });
+    }
+    const disc = Math.round(orig * DISCOUNT);
+    sess.querySelector('.orig').textContent = fmt(orig);
+    sess.querySelector('.disc').textContent = fmt(disc);
+    grand += disc;
+  });
+  $('grandTotal').textContent = fmt(grand);
+  return grand;
+}
+
+/* ---------- 事件 ---------- */
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.classList.contains('s-check')) {
+    const sess = t.closest('.session');
+    sess.classList.toggle('active', t.checked);
+    if (!t.checked) {            // 取消場次時清空該場次票區
+      sess.querySelectorAll('.tier').forEach(tier => {
+        tier.querySelector('.t-check').checked = false;
+        const q = tier.querySelector('.t-qty'); q.disabled = true; q.value = 1;
+        tier.querySelector('.seats').innerHTML = '';
+      });
+    }
+  }
+  if (t.classList.contains('t-check')) {
+    const tier = t.closest('.tier');
+    const qty = tier.querySelector('.t-qty');
+    qty.disabled = !t.checked;
+    qty.value = 1;               // 勾選時預設 1 張
+    renderSeats(tier);
+    if (t.checked) {             // 勾選票區時自動勾選該場次
+      const sess = t.closest('.session');
+      sess.querySelector('.s-check').checked = true;
+      sess.classList.add('active');
+    }
+  }
+  if (t.classList.contains('t-qty')) {
+    const n = parseInt(t.value);
+    t.value = n >= 1 ? Math.min(n, 20) : 1;   // 張數限 1–20
+    renderSeats(t.closest('.tier'));
+  }
+  calc();
+});
+document.addEventListener('input', e => {
+  if (e.target.classList.contains('t-qty')) {
+    if (parseInt(e.target.value) >= 1) renderSeats(e.target.closest('.tier'));
+    calc();
+  }
+});
+
+/* ---------- 整理訂單資料 ---------- */
+function collect() {
+  const data = {
+    action: 'order',
+    name: $('name').value.trim(), phone: $('phone').value.trim(),
+    email: $('email').value.trim(), last5: $('last5').value.trim(),
+    band: $('band').value.trim(), sessions: [], detail1: '', detail2: '', detail3: '',
+    items: [],  // 結構化明細，供後端重新計算金額
+    view: []    // 彙整資料，供確認畫面與確認信使用
+  };
+  document.querySelectorAll('.session').forEach((sess, i) => {
+    if (!sess.querySelector('.s-check').checked) return;
+    const s = SESSIONS[i];
+    const parts = [], lines = [];
+    let orig = 0;
+    sess.querySelectorAll('.tier').forEach(t => {
+      if (!t.querySelector('.t-check').checked) return;
+      const p = Number(t.dataset.price);
+      const q = parseInt(t.querySelector('.t-qty').value) || 0;
+      orig += p * q;
+      const seats = [...t.querySelectorAll('.seat')].map(el => {
+        const r = el.querySelector('.row').value.trim(), n = el.querySelector('.no').value.trim();
+        return (r || n) ? `${r}排${n}號` : '代選';
+      });
+      parts.push(`NT$${p} x ${q} 張（座位：${seats.join('、')}）`);
+      lines.push({ price: p, qty: q, seats: seats });
+      data.items.push({ session: s.id, price: p, qty: q });
+    });
+    if (!parts.length) return;
+    data.sessions.push(`${s.venue} ${s.time} ${s.theme}`);
+    data.view.push({ title: `${s.venue}｜${s.time}｜${s.theme}`, lines: lines,
+      orig: orig, disc: Math.round(orig * DISCOUNT) });
+    data['detail' + s.id] = parts.join('；') +
+      ` ｜原價 NT$${fmt(orig)} ｜早鳥7折 NT$${fmt(Math.round(orig * DISCOUNT))}`;
+  });
+  data.total = calc();
+  return data;
+}
+
+function validate(d) {
+  if (!d.name) return '請填寫訂票人姓名';
+  if (!/^[0-9\-+ ]{8,15}$/.test(d.phone)) return '請填寫正確的電話';
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) return '請填寫正確的 Email';
+  if (d.last5 && !/^\d{5}$/.test(d.last5)) return '匯款帳戶後五碼須為 5 位數字（尚未匯款請留空）';
+  if (!d.sessions.length) return '請至少選擇一個場次並勾選票區';
+  if (!d.band) return '請填寫您參加的樂團名稱';
+  return '';
+}
+
+function showMsg(text, ok, id = 'msg') {
+  const m = $(id);
+  m.textContent = text;
+  m.className = 'msg ' + (ok ? 'ok' : 'err');
+}
+
+/* ---------- 確認畫面 ---------- */
+const esc = v => String(v).replace(/[&<>"']/g, c =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let pending = null;
+
+function showConfirm(d) {
+  const rows = [['姓名', d.name], ['電話', d.phone], ['Email', d.email],
+    ['匯款後五碼', d.last5 || '尚未填寫（可稍後補填）'], ['樂團名稱', d.band]];
+  let html = '<table>' + rows.map(r => `<tr><th>${r[0]}</th><td>${esc(r[1])}</td></tr>`).join('') + '</table>';
+  d.view.forEach(v => {
+    html += `<div class="c-sess"><b>${esc(v.title)}</b><ul>` +
+      v.lines.map(l => `<li>NT$${fmt(l.price)} × ${l.qty} 張　座位：${esc(l.seats.join('、'))}</li>`).join('') +
+      `</ul><div class="c-sum">原價 NT$${fmt(v.orig)}　早鳥 7 折 NT$${fmt(v.disc)}</div></div>`;
+  });
+  html += `<div class="c-total">早鳥總金額：<b>NT$${fmt(d.total)}</b></div>`;
+  $('confirmBody').innerHTML = html;
+  $('confirmBox').hidden = false;
+  $('confirmBtn').focus();
+}
+function hideConfirm() { $('confirmBox').hidden = true; }
+
+$('backBtn').addEventListener('click', () => { pending = null; hideConfirm(); });
+$('confirmBtn').addEventListener('click', () => {
+  const d = pending; pending = null; hideConfirm();
+  if (d) sendOrder(d);
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && !$('confirmBox').hidden) { pending = null; hideConfirm(); }
+});
+
+$('orderForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const d = collect();
+  const err = validate(d);
+  if (err) return showMsg(err, false);
+  $('msg').className = 'msg';
+  pending = d;
+  showConfirm(d);
+});
+
+/* ---------- 送出到 Google Apps Script ---------- */
+async function sendOrder(d) {
+  if (!SCRIPT_URL) {
+    console.log('訂單資料：', d);
+    return showMsg('尚未設定 Apps Script 網址（SCRIPT_URL），訂單資料已輸出到瀏覽器 Console。', false);
+  }
+
+  $('submitBtn').disabled = true;
+  showMsg('送出中…', true);
+  try {
+    // 不設定 Content-Type（預設 text/plain），避免 CORS 預檢，才能讀取 Apps Script 回應
+    d.orderId = makeOrderId();
+    const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(d) });
+    const r = await readResult(res);
+    if (r.unverified) {
+      showMsg(`已送出，但無法確認主辦方是否收到。\n參考編號：${d.orderId}\n請截圖保存並聯絡主辦方確認，勿重複下單。`, false);
+      return;
+    }
+    if (!r.ok) throw new Error(r.error || '伺服器錯誤');
+    showMsg(`訂單已送出！\n訂單編號：${r.orderId || d.orderId}\n早鳥總金額：NT$${fmt(r.total || d.total)}` +
+      (d.last5 ? '\n已收到匯款後五碼，主辦方核對後確認。'
+               : '\n請保存訂單編號，匯款後到「補填匯款資料」填寫後五碼。') +
+      (r.emailSent === false ? '\n（確認信寄送失敗，請截圖保存本畫面）'
+                             : `\n確認信已寄到 ${d.email}，若未收到請查看垃圾郵件。`), true);
+    $('orderForm').reset();
+    document.querySelectorAll('.session').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.t-qty').forEach(q => q.disabled = true);
+    document.querySelectorAll('.seats').forEach(s => s.innerHTML = '');
+    calc();
+  } catch (ex) {
+    showMsg('送出失敗：' + ex.message + '，請稍後再試。', false);
+  } finally {
+    $('submitBtn').disabled = false;
+  }
+}
+
+/* ---------- 分頁切換 ---------- */
+document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b === btn));
+  $('orderForm').hidden = btn.dataset.tab !== 'orderForm';
+  $('payForm').hidden = btn.dataset.tab !== 'payForm';
+}));
+
+/* ---------- 補填匯款後五碼 ---------- */
+$('payForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const d = {
+    action: 'pay',
+    orderId: $('payOrderId').value.trim().toUpperCase(),
+    phone: $('payPhone').value.trim(),
+    last5: $('payLast5').value.trim()
+  };
+  if (!d.orderId) return showMsg('請填寫訂單編號', false, 'payMsg');
+  if (!d.phone) return showMsg('請填寫訂購時的電話', false, 'payMsg');
+  if (!/^\d{5}$/.test(d.last5)) return showMsg('匯款帳戶後五碼須為 5 位數字', false, 'payMsg');
+  if (!SCRIPT_URL) return showMsg('尚未設定 Apps Script 網址（SCRIPT_URL）。', false, 'payMsg');
+
+  $('payBtn').disabled = true;
+  showMsg('送出中…', true, 'payMsg');
+  try {
+    const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(d) });
+    const r = await readResult(res);
+    if (!r.ok) throw new Error(r.error || '伺服器錯誤');
+    showMsg(`已收到訂單 ${d.orderId} 的匯款後五碼，主辦方核對後確認。`, true, 'payMsg');
+    $('payForm').reset();
+  } catch (ex) {
+    showMsg('送出失敗：' + ex.message, false, 'payMsg');
+  } finally {
+    $('payBtn').disabled = false;
+  }
+});
+
+/* ---------- 由確認信連結開啟：顯示唯讀訂單 + 填寫後五碼 ---------- */
+const params = new URLSearchParams(location.search);
+const viewOrderId = params.get('order'), viewToken = params.get('t');
+
+async function api(body) {
+  const res = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(body) });
+  const r = await readResult(res);
+  if (r.unverified) throw new Error('無法取得伺服器回應，請稍後再試');
+  if (!r.ok) throw new Error(r.error || '伺服器錯誤');
+  return r;
+}
+
+function renderOrderView(o) {
+  const rows = [['訂單編號', o.orderId], ['訂購時間', o.time], ['姓名', o.name], ['電話', o.phone],
+    ['Email', o.email], ['樂團名稱', o.band], ['匯款後五碼', o.last5 || '尚未填寫']];
+  $('viewBody').innerHTML = '<h2>您的訂單</h2><table>' +
+    rows.map(r => `<tr><th>${r[0]}</th><td>${esc(r[1])}</td></tr>`).join('') +
+    `<tr><th>付款狀態</th><td><span class="badge s-${esc(o.status)}">${esc(o.status)}</span></td></tr></table>` +
+    o.sessions.split('\n').map((t, i) => `<div class="det"><b>${esc(t)}</b><br>${esc((o.details[i] || '').replace(/；/g, '\n')).replace(/\n/g, '<br>')}</div>`).join('') +
+    `<div class="c-total" style="text-align:right;font-size:1.15rem;border-top:2px solid #b4462a;padding-top:10px;">早鳥總金額：<b style="color:#b4462a;">NT$${fmt(o.total)}</b></div>`;
+  const canPay = o.status === '未匯款' || o.status === '待核對';
+  $('viewPayForm').hidden = !canPay;
+  if (canPay && o.last5) $('viewPayForm').querySelector('h2').textContent = '修改匯款帳號後五碼';
+}
+
+async function loadOrderView() {
+  $('orderView').hidden = false;
+  document.querySelector('.tabs').style.display = 'none';
+  $('orderForm').hidden = true;
+  $('payForm').hidden = true;
+  try {
+    const r = await api({ action: 'get', orderId: viewOrderId, token: viewToken });
+    renderOrderView(r.order);
+  } catch (ex) {
+    $('viewBody').textContent = '無法讀取訂單：' + ex.message;
+  }
+}
+
+$('viewPayForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const last5 = $('viewLast5').value.trim();
+  if (!/^\d{5}$/.test(last5)) return showMsg('匯款帳戶後五碼須為 5 位數字', false, 'viewMsg');
+  $('viewPayBtn').disabled = true;
+  showMsg('送出中…', true, 'viewMsg');
+  try {
+    await api({ action: 'pay', orderId: viewOrderId, token: viewToken, last5: last5 });
+    const r = await api({ action: 'get', orderId: viewOrderId, token: viewToken });
+    renderOrderView(r.order);
+    $('viewLast5').value = '';
+    showMsg('已收到您的匯款帳號後五碼，主辦方核對入帳後會再與您確認。', true, 'viewMsg');
+  } catch (ex) {
+    showMsg('送出失敗：' + ex.message, false, 'viewMsg');
+  } finally {
+    $('viewPayBtn').disabled = false;
+  }
+});
+
+renderSessions();
+calc();
+if (viewOrderId && viewToken) loadOrderView();
+</script>
+</body>
+</html>
