@@ -11,7 +11,7 @@ const SHEET_NAME = '訂單';
 // ===== 確認信設定（可自行修改）=====
 const ORGANIZER = '聲動室內樂團 SOUNDANZE ENSEMBLE';  // 寄件者顯示名稱
 const PAGE_URL = 'https://mikekuo2024-collab.github.io/concert-tickets/';  // 訂票網頁公開網址（確認信按鈕連到這裡）
-const PAYMENT_INFO = '';             // 匯款資訊，例如：'台灣銀行(004) 帳號 123-456-789 戶名 ○○○，請於 7 日內匯款'；留空則信中不顯示
+const PAYMENT_INFO = '銀行：（807）永豐銀行\n戶名：聲動室內樂團\n帳號：02401800131556';  // 確認信中的匯款資訊（\n 換行）；留空則不顯示
 
 const DISCOUNT = 0.7;
 const PRICES = [600, 800, 1000, 1200];
@@ -146,7 +146,8 @@ function sendConfirmMail_(d, orderId, total, token) {
     '<tr><td style="' + td + 'color:#666;">選位</td><td style="' + td + '">' + (d.seatPick ? '自行指定（若已售出將代選鄰近位置）' : '由主辦方代選') + '</td></tr>' +
     '</table>' + sessHtml +
     '<p style="font-size:17px;margin-top:16px;">早鳥總金額：<b style="color:#b4462a;">NT$' + fmt(total) + '</b></p>' +
-    (PAYMENT_INFO ? '<p><b>匯款資訊：</b>' + esc(PAYMENT_INFO) + '</p>' : '') +
+    (PAYMENT_INFO ? '<div style="border:2px solid #b4462a;border-radius:8px;padding:10px 14px;margin:16px 0;">' +
+      '<b style="color:#b4462a;">匯款資訊</b><br>' + esc(PAYMENT_INFO).replace(/\n/g, '<br>') + '</div>' : '') +
     payHtml + btnHtml +
     '<p style="margin-top:20px;">' + esc(ORGANIZER) + ' 敬上</p>' +
     '<p style="color:#888;font-size:12px;">本信件由系統自動寄出，請勿直接回覆。</p></div>';
