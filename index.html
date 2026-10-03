@@ -91,6 +91,12 @@
   form.pick-seat .seats, form.pick-seat .seat-hint { display: block; }
   .brand { background: #fff; border-radius: 10px; padding: 16px; margin-bottom: 16px; text-align: center; border: 1px solid #ececf0; }
   .brand img { display: block; width: 100%; max-width: 420px; height: auto; margin: 0 auto; }
+  .bank { background: #fff; border: 2px solid #b4462a; border-radius: 8px; padding: 12px 16px; margin-bottom: 12px; }
+  .bank h2 { margin: 0 0 6px; font-size: 1rem; color: #b4462a; }
+  .bank dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; }
+  .bank dt { color: #666; }
+  .bank dd { margin: 0; font-weight: 600; }
+  .bank .acct { font-size: 1.15rem; letter-spacing: .05em; font-variant-numeric: tabular-nums; }
   .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
   .tabs .tab { width: auto; flex: 1; padding: 10px; font-size: 1rem; background: #fff; color: #b4462a; border: 2px solid #b4462a; }
   .tabs .tab.on { background: #b4462a; color: #fff; }
@@ -147,24 +153,24 @@
     </fieldset>
 
     <fieldset>
-      <legend>5. 選擇觀賞場次（可複選）<span class="req">*</span></legend>
-      <div id="sessions"></div>
-    </fieldset>
-
-    <fieldset>
-      <legend>6. 是否自行選位？<span class="req">*</span></legend>
+      <legend>5. 是否自行選位？<span class="req">*</span></legend>
       <div class="radio-row">
         <label><input type="radio" name="seatPick" value="no" checked> 不指定，由主辦方代選</label>
         <label><input type="radio" name="seatPick" value="yes"> 自行指定座位</label>
       </div>
       <div class="sub-box" id="seatPickBox" hidden>
-        <p>請先瀏覽場次座位圖，再於上方各票區填寫每一張的「排、號」：</p>
+        <p>請先瀏覽場次座位圖，再於下方各場次的票區填寫每一張的「排、號」：</p>
         <ul>
           <li><a href="https://www.opentix.life/event/2032303556119486465" target="_blank" rel="noopener">《聲動漫：ACG 音樂祭》座位圖（台中、高雄晚場）</a></li>
           <li><a href="https://www.opentix.life/event/2032017897215483905" target="_blank" rel="noopener">《聲之饗宴：宮崎駿動畫音樂會》座位圖（高雄午場）</a></li>
         </ul>
         <p class="hint" style="margin:0;">備註：如選取的位置已被購買，將會自行幫您選取鄰近位置。</p>
       </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>6. 選擇觀賞場次（可複選）<span class="req">*</span></legend>
+      <div id="sessions"></div>
     </fieldset>
 
     <fieldset>
@@ -190,6 +196,15 @@
       <label class="field"><span>您參加的樂團名稱（選填）</span>
         <input type="text" id="band"></label>
     </fieldset>
+
+    <section class="bank" aria-labelledby="bankTitle">
+      <h2 id="bankTitle">匯款資訊</h2>
+      <dl>
+        <dt>銀行</dt><dd>（807）永豐銀行</dd>
+        <dt>戶名</dt><dd>聲動室內樂團</dd>
+        <dt>帳號</dt><dd class="acct">02401800131556</dd>
+      </dl>
+    </section>
 
     <div class="grand">全部場次早鳥總金額：<b>NT$<span id="grandTotal">0</span></b></div>
 
