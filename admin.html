@@ -134,6 +134,11 @@
             <option value="已確認">已確認</option>
             <option value="已取消">已取消</option>
           </select>
+          <select id="fDelivery">
+            <option value="">全部取票方式</option>
+            <option>電子票</option>
+            <option>現場領票</option>
+          </select>
           <input type="search" id="fText" class="grow" placeholder="搜尋姓名、電話、Email、訂單編號、樂團">
         </div>
         <div class="toolbar">
@@ -170,6 +175,8 @@
             <option value="s3">場次三購票者｜高雄至善廳 12/26 19:00</option>
             <option value="nolast5">尚未填寫匯款資料</option>
             <option value="unpaid">尚未繳款（未匯款＋待核對）</option>
+            <option value="d-電子票">選擇電子票（OPENTIX）的訂購者</option>
+            <option value="d-現場領票">選擇現場領票的訂購者</option>
             <option value="selected">訂單清單中勾選的訂單</option>
           </select>
         </label>
@@ -183,7 +190,7 @@
         </div>
         <label class="field"><span>主旨</span><input type="text" id="mSubject"></label>
         <label class="field"><span>內容</span><textarea id="mBody" rows="10"></textarea></label>
-        <p class="ph">可用變數：<code>{姓名}</code><code>{訂單編號}</code><code>{總金額}</code><code>{付款狀態}</code><code>{場次}</code><code>{訂單連結}</code>（訂單連結會變成按鈕）</p>
+        <p class="ph">可用變數：<code>{姓名}</code><code>{訂單編號}</code><code>{總金額}</code><code>{付款狀態}</code><code>{場次}</code><code>{取票方式}</code><code>{訂單連結}</code>（訂單連結會變成按鈕）</p>
         <button type="button" id="mSendBtn">寄出</button>
         <div id="mMsg" class="msg"></div>
       </div>
@@ -313,7 +320,7 @@ const active = o => o.status !== '已取消';
 const sessRevenue = s => Math.round(s.items.reduce((a, i) => a + i.price * i.qty, 0) * DISCOUNT);
 
 function computeStats() {
-  const st = { orders: 0, tickets: 0, revenue: 0, confirmedRev: 0, status: {}, sess: {} };
+  const st = { orders: 0, tickets: 0, revenue: 0, confirmedRev: 0, status: {}, sess: {}, delivery: {} };
   STATUS_LIST.forEach(s => st.status[s] = { n: 0, amt: 0 });
   [1, 2, 3].forEach(n => {
     st.sess[n] = { orders: 0, tickets: 0, revenue: 0, paidRevenue: 0, tiers: {} };
@@ -324,6 +331,7 @@ function computeStats() {
     s.n++; s.amt += o.total;
     if (!active(o)) return;
     st.orders++; st.revenue += o.total;
+    if (o.delivery) st.delivery[o.delivery] = (st.delivery[o.delivery] || 0) + 1;
     if (o.status === '已確認') st.confirmedRev += o.total;
     o.sessions.forEach(x => {
       const S = st.sess[x.session]; if (!S) return;
@@ -350,7 +358,8 @@ function renderOverview() {
     kpi('總票數', fmt(st.tickets) + ' 張') +
     kpi('預計營收', 'NT$' + fmt(st.revenue), '早鳥 7 折後') +
     kpi('已確認收款', 'NT$' + fmt(st.confirmedRev), st.revenue ? `佔預計營收 ${Math.round(st.confirmedRev / st.revenue * 100)}%` : '') +
-    kpi('尚未繳款', fmt(unpaid) + ' 筆', `其中待核對 ${st.status['待核對'].n} 筆`);
+    kpi('尚未繳款', fmt(unpaid) + ' 筆', `其中待核對 ${st.status['待核對'].n} 筆`) +
+    kpi('取票方式', `電子票 ${st.delivery['電子票'] || 0}`, `現場領票 ${st.delivery['現場領票'] || 0} 筆`);
 
   // 付款狀態堆疊條
   const total = ORDERS.length || 1;
@@ -401,19 +410,20 @@ $('sessCards').addEventListener('click', e => {
 });
 
 /* ---------- 訂單清單 ---------- */
-function matchFilter(o, sess, status, text) {
+function matchFilter(o, sess, status, text, delivery) {
+  if (delivery && o.delivery !== delivery) return false;
   if (sess && !o.sessions.some(x => String(x.session) === sess)) return false;
   if (status === 'unpaid' && !(o.status === '未匯款' || o.status === '待核對')) return false;
   if (status === 'nolast5' && !(o.status === '未匯款' && !o.last5)) return false;
   if (STATUS_LIST.includes(status) && o.status !== status) return false;
   if (text) {
-    const hay = [o.orderId, o.name, o.phone, o.email, o.band, o.last5].join(' ').toLowerCase();
+    const hay = [o.orderId, o.name, o.phone, o.email, o.band, o.last5, o.otName, o.otPhone].join(' ').toLowerCase();
     if (!hay.includes(text.toLowerCase())) return false;
   }
   return true;
 }
 function filteredOrders() {
-  return ORDERS.filter(o => matchFilter(o, $('fSession').value, $('fStatus').value, $('fText').value.trim()));
+  return ORDERS.filter(o => matchFilter(o, $('fSession').value, $('fStatus').value, $('fText').value.trim(), $('fDelivery').value));
 }
 function ticketText(o) {
   return o.sessions.map(x => `<div><b>${SESSIONS[x.session].short}</b> ` +
@@ -427,8 +437,9 @@ function renderList() {
     <td><input type="checkbox" class="rowChk" data-id="${esc(o.orderId)}" ${selected.has(o.orderId) ? 'checked' : ''}></td>
     <td>${esc(o.orderId)}${o.note ? `<div class="muted" title="${esc(o.note)}">📝 備註</div>` : ''}</td>
     <td class="muted">${esc(o.time)}</td>
-    <td>${esc(o.name)}<div class="muted">${esc(o.phone)}<br>${esc(o.email)}<br>樂團：${esc(o.band)}</div></td>
-    <td class="tickets">${ticketText(o)}</td>
+    <td>${esc(o.name)}<div class="muted">${esc(o.phone)}<br>${esc(o.email)}<br>樂團：${esc(o.band) || '（未填）'}</div></td>
+    <td class="tickets">${ticketText(o)}
+      <div class="muted">${o.delivery === '電子票' ? `電子票｜OPENTIX：${esc(o.otName)} ${esc(o.otPhone)}` : esc(o.delivery || '取票方式未選')}${o.seatPick === '是' ? '｜自行選位' : ''}</div></td>
     <td class="num">NT$${fmt(o.total)}</td>
     <td>${esc(o.last5) || '<span class="muted">未填</span>'}</td>
     <td><select class="rowStatus" data-id="${esc(o.orderId)}" aria-label="付款狀態">
@@ -438,7 +449,7 @@ function renderList() {
   $('checkAll').checked = list.length > 0 && list.every(o => selected.has(o.orderId));
 }
 
-['fSession', 'fStatus'].forEach(id => $(id).addEventListener('change', renderList));
+['fSession', 'fStatus', 'fDelivery'].forEach(id => $(id).addEventListener('change', renderList));
 $('fText').addEventListener('input', renderList);
 $('checkAll').addEventListener('change', e => {
   filteredOrders().forEach(o => e.target.checked ? selected.add(o.orderId) : selected.delete(o.orderId));
@@ -518,6 +529,7 @@ function mailRecipients() {
     if (v[0] === 's') return o.sessions.some(x => 's' + x.session === v);
     if (v === 'nolast5') return o.status === '未匯款' && !o.last5;
     if (v === 'unpaid') return o.status === '未匯款' || o.status === '待核對';
+    if (v.startsWith('d-')) return o.delivery === v.slice(2);
     return false;
   });
 }

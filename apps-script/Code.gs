@@ -19,10 +19,13 @@ const SESSION_IDS = [1, 2, 3];
 const STATUS = ['未匯款', '待核對', '已確認', '已取消'];
 const HEADERS = ['訂單編號', '訂購時間', '姓名', '電話', 'Email', '匯款後五碼',
   '觀賞場次', '場次一明細', '場次二明細', '場次三明細', '早鳥總金額', '樂團名稱',
-  '付款狀態', '後五碼填寫時間', '核對備註', '查詢碼'];
+  '付款狀態', '後五碼填寫時間', '核對備註', '查詢碼',
+  '取票方式', 'OPENTIX會員姓名', 'OPENTIX會員電話', '自行選位'];
+const DELIVERY = ['電子票', '現場領票'];
 // 欄位位置（1 起算）
 const COL = { id: 1, time: 2, name: 3, phone: 4, email: 5, last5: 6, sessions: 7,
-  detail1: 8, detail2: 9, detail3: 10, total: 11, band: 12, status: 13, last5Time: 14, note: 15, token: 16 };
+  detail1: 8, detail2: 9, detail3: 10, total: 11, band: 12, status: 13, last5Time: 14, note: 15, token: 16,
+  delivery: 17, otName: 18, otPhone: 19, seatPick: 20 };
 
 function doPost(e) {
   let d;
@@ -52,7 +55,9 @@ function withLock_(fn) {
 
 /* ---------- 新增訂單 ---------- */
 function createOrder_(d) {
-  if (!d.name || !d.phone || !d.email || !d.band) throw new Error('必填欄位未填寫');
+  if (!d.name || !d.phone || !d.email) throw new Error('必填欄位未填寫');
+  if (DELIVERY.indexOf(d.delivery) < 0) throw new Error('請選擇取票方式');
+  if (d.delivery === '電子票' && (!d.otName || !d.otPhone)) throw new Error('請填寫 OPENTIX 會員姓名與電話');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) throw new Error('Email 格式錯誤');
   if (d.last5 && !/^\d{5}$/.test(d.last5)) throw new Error('匯款後五碼格式錯誤');
   if (!Array.isArray(d.items) || !d.items.length) throw new Error('未選擇任何票券');
@@ -78,8 +83,10 @@ function createOrder_(d) {
   sheet.appendRow([
     orderId, now, d.name, "'" + d.phone, d.email, d.last5 ? "'" + d.last5 : '',
     (d.sessions || []).join('\n'), d.detail1 || '', d.detail2 || '', d.detail3 || '',
-    total, d.band,
-    d.last5 ? '待核對' : '未匯款', d.last5 ? now : '', '', token
+    total, d.band || '',
+    d.last5 ? '待核對' : '未匯款', d.last5 ? now : '', '', token,
+    d.delivery, d.delivery === '電子票' ? d.otName : '',
+    d.delivery === '電子票' ? "'" + d.otPhone : '', d.seatPick ? '是' : '否'
   ]);
   // 寄送確認信；寄信失敗不影響訂單成立
   let emailSent = false;
@@ -118,9 +125,12 @@ function sendConfirmMail_(d, orderId, total, token) {
     '查看訂單 / 填寫匯款資料</a></td></tr></table>' +
     '<p style="color:#888;font-size:12px;">若按鈕無法點擊，請複製此網址到瀏覽器：<br>' + esc(link) + '</p>';
 
-  const payHtml = d.last5
+  const deliveryHtml = d.delivery === '電子票'
+    ? '<p>確認付款後，電子票將匯入您的 OPENTIX 會員票匣，請確認會員姓名與電話正確。</p>'
+    : '<p>您選擇現場領票：請先完成付款並提供匯款帳號後五碼，演出當天可提早至現場領票。</p>';
+  const payHtml = deliveryHtml + (d.last5
     ? '<p>已收到您的匯款帳號後五碼：<b>' + esc(d.last5) + '</b>，主辦方核對入帳後會再與您確認。</p>'
-    : '<p>您尚未填寫匯款帳號後五碼。匯款後請點下方按鈕，填寫匯款帳號後五碼。</p>';
+    : '<p>您尚未填寫匯款帳號後五碼。匯款後請點下方按鈕，填寫匯款帳號後五碼。</p>');
 
   const html =
     '<div style="font-family:sans-serif;font-size:14px;color:#222;max-width:600px;">' +
@@ -130,7 +140,10 @@ function sendConfirmMail_(d, orderId, total, token) {
     '<tr><td style="' + td + 'color:#666;">姓名</td><td style="' + td + '">' + esc(d.name) + '</td></tr>' +
     '<tr><td style="' + td + 'color:#666;">電話</td><td style="' + td + '">' + esc(d.phone) + '</td></tr>' +
     '<tr><td style="' + td + 'color:#666;">Email</td><td style="' + td + '">' + esc(d.email) + '</td></tr>' +
-    '<tr><td style="' + td + 'color:#666;">樂團名稱</td><td style="' + td + '">' + esc(d.band) + '</td></tr>' +
+    '<tr><td style="' + td + 'color:#666;">樂團名稱</td><td style="' + td + '">' + esc(d.band || '（未填）') + '</td></tr>' +
+    '<tr><td style="' + td + 'color:#666;">取票方式</td><td style="' + td + '">' +
+      (d.delivery === '電子票' ? '電子票（OPENTIX 會員：' + esc(d.otName) + '／' + esc(d.otPhone) + '）' : esc(d.delivery)) + '</td></tr>' +
+    '<tr><td style="' + td + 'color:#666;">選位</td><td style="' + td + '">' + (d.seatPick ? '自行指定（若已售出將代選鄰近位置）' : '由主辦方代選') + '</td></tr>' +
     '</table>' + sessHtml +
     '<p style="font-size:17px;margin-top:16px;">早鳥總金額：<b style="color:#b4462a;">NT$' + fmt(total) + '</b></p>' +
     (PAYMENT_INFO ? '<p><b>匯款資訊：</b>' + esc(PAYMENT_INFO) + '</p>' : '') +
@@ -189,7 +202,8 @@ function getOrder_(d) {
       phone: String(c('phone')), email: String(c('email')), band: String(c('band')),
       details: [c('detail1'), c('detail2'), c('detail3')].map(String).filter(x => x),
       sessions: String(c('sessions')), total: Number(c('total')),
-      last5: String(c('last5') || ''), status: String(c('status') || '')
+      last5: String(c('last5') || ''), status: String(c('status') || ''),
+      delivery: String(c('delivery') || ''), otName: String(c('otName') || ''), otPhone: String(c('otPhone') || '')
     } };
   }
   throw new Error('查無此訂單，請確認連結是否完整');
@@ -214,8 +228,11 @@ function getSheet_() {
       SpreadsheetApp.newConditionalFormatRule()
         .whenTextEqualTo(s).setBackground(colors[s]).setRanges([statusRange]).build()));
   }
-  if (sheet.getRange(1, COL.token).getValue() !== '查詢碼') {
-    sheet.getRange(1, COL.token).setValue('查詢碼').setFontWeight('bold');
+  // 舊版建立的工作表：補上後來新增欄位的標題
+  for (let c = 16; c <= HEADERS.length; c++) {
+    if (sheet.getRange(1, c).getValue() !== HEADERS[c - 1]) {
+      sheet.getRange(1, c).setValue(HEADERS[c - 1]).setFontWeight('bold');
+    }
   }
   return sheet;
 }
@@ -256,6 +273,8 @@ function readOrders_() {
       row: i + 1, orderId: String(c('id')), time: fmtTime(c('time')),
       name: String(c('name')), phone: String(c('phone')), email: String(c('email')),
       band: String(c('band')), last5: String(c('last5') || ''), status: String(c('status') || ''),
+      delivery: String(c('delivery') || ''), otName: String(c('otName') || ''), otPhone: String(c('otPhone') || ''),
+      seatPick: String(c('seatPick') || ''),
       note: String(c('note') || ''), total: Number(c('total')) || 0,
       token: String(c('token') || ''),
       sessions: [1, 2, 3].map(n => ({ session: n, text: String(c('detail' + n) || ''), items: parseDetail_(c('detail' + n)) }))
@@ -312,7 +331,8 @@ function adminMail_(d) {
       const vars = {
         '{姓名}': o.name, '{訂單編號}': o.orderId,
         '{總金額}': 'NT$' + Number(o.total).toLocaleString('en-US'), '{付款狀態}': o.status,
-        '{場次}': o.sessions.map(x => names[x.session]).join('、')
+        '{場次}': o.sessions.map(x => names[x.session]).join('、'),
+        '{取票方式}': o.delivery || '未選擇'
       };
       let subject = String(d.subject), html = esc(d.body);
       Object.keys(vars).forEach(k => {

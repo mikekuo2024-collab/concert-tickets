@@ -65,6 +65,16 @@
   .badge { display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: .9rem; }
   .badge.s-未匯款 { background: #fde2e1; } .badge.s-待核對 { background: #fff4c2; }
   .badge.s-已確認 { background: #d9f2dd; } .badge.s-已取消 { background: #e0e0e0; }
+  .radio-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+  .radio-row label { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px solid #ccc; border-radius: 6px; cursor: pointer; background: #fff; }
+  .radio-row label:has(input:checked) { border-color: #b4462a; background: #fff8f5; }
+  .sub-box { background: #faf7f5; border-radius: 6px; padding: 10px 12px; margin-top: 8px; font-size: .92rem; }
+  .sub-box[hidden] { display: none; }
+  .sub-box p { margin: 0 0 8px; }
+  .sub-box ul { margin: 4px 0 8px; padding-left: 20px; }
+  .ev-link { display: inline-block; margin-top: 4px; font-size: .88rem; }
+  .seats, .seat-hint { display: none; }
+  form.pick-seat .seats, form.pick-seat .seat-hint { display: block; }
   .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
   .tabs .tab { width: auto; flex: 1; padding: 10px; font-size: 1rem; background: #fff; color: #b4462a; border: 2px solid #b4462a; }
   .tabs .tab.on { background: #b4462a; color: #fff; }
@@ -125,9 +135,43 @@
     </fieldset>
 
     <fieldset>
-      <legend>6. 其他</legend>
-      <label class="field"><span>您參加的樂團名稱 <span class="req">*</span></span>
-        <input type="text" id="band" required></label>
+      <legend>6. 是否自行選位？<span class="req">*</span></legend>
+      <div class="radio-row">
+        <label><input type="radio" name="seatPick" value="no" checked> 不指定，由主辦方代選</label>
+        <label><input type="radio" name="seatPick" value="yes"> 自行指定座位</label>
+      </div>
+      <div class="sub-box" id="seatPickBox" hidden>
+        <p>請先瀏覽場次座位圖，再於上方各票區填寫每一張的「排、號」：</p>
+        <ul>
+          <li><a href="https://www.opentix.life/event/2032303556119486465" target="_blank" rel="noopener">《聲動漫：ACG 音樂祭》座位圖（台中、高雄晚場）</a></li>
+          <li><a href="https://www.opentix.life/event/2032017897215483905" target="_blank" rel="noopener">《聲之饗宴：宮崎駿動畫音樂會》座位圖（高雄午場）</a></li>
+        </ul>
+        <p class="hint" style="margin:0;">備註：如選取的位置已被購買，將會自行幫您選取鄰近位置。</p>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>7. 取票方式 <span class="req">*</span></legend>
+      <div class="radio-row">
+        <label><input type="radio" name="delivery" value="電子票"> 電子票（OPENTIX 票匣）</label>
+        <label><input type="radio" name="delivery" value="現場領票"> 現場領票（實體票）</label>
+      </div>
+      <div class="sub-box" id="eticketBox" hidden>
+        <p>電子票需為 <a href="https://www.opentix.life" target="_blank" rel="noopener">OPENTIX</a> 會員（尚未註冊請先註冊），票券將直接匯入您的會員票匣。請填寫 OPENTIX 會員資料：</p>
+        <label class="field"><span>OPENTIX 會員姓名 <span class="req">*</span></span>
+          <input type="text" id="otName"></label>
+        <label class="field" style="margin-bottom:0;"><span>OPENTIX 會員電話 <span class="req">*</span></span>
+          <input type="tel" id="otPhone" placeholder="註冊 OPENTIX 時使用的電話"></label>
+      </div>
+      <div class="sub-box" id="pickupBox" hidden>
+        <p style="margin:0;">現場領票需先完成付款，並提供匯款帳戶後五碼以便查帳（可於上方填寫，或之後透過確認信補填）。演出當天可提早至現場領票。</p>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>8. 其他</legend>
+      <label class="field"><span>您參加的樂團名稱（選填）</span>
+        <input type="text" id="band"></label>
     </fieldset>
 
     <div class="grand">全部場次早鳥總金額：<b>NT$<span id="grandTotal">0</span></b></div>
@@ -177,9 +221,12 @@ async function readResult(res) {
 }
 const PRICES = [600, 800, 1000, 1200];
 const SESSIONS = [
-  { id: 1, venue: '台中中山堂',         time: '2026/11/28（六）19:30', theme: '聲動漫 ACG 音樂祭' },
-  { id: 2, venue: '高雄文化中心至善廳', time: '2026/12/26（六）14:30', theme: '聲之饗宴 宮崎駿動畫音樂會' },
-  { id: 3, venue: '高雄文化中心至善廳', time: '2026/12/26（六）19:00', theme: '聲動漫 ACG 音樂祭' }
+  { id: 1, venue: '台中中山堂',         time: '2026/11/28（六）19:30', theme: '聲動漫 ACG 音樂祭',
+    url: 'https://www.opentix.life/event/2032303556119486465' },
+  { id: 2, venue: '高雄文化中心至善廳', time: '2026/12/26（六）14:30', theme: '聲之饗宴 宮崎駿動畫音樂會',
+    url: 'https://www.opentix.life/event/2032017897215483905' },
+  { id: 3, venue: '高雄文化中心至善廳', time: '2026/12/26（六）19:00', theme: '聲動漫 ACG 音樂祭',
+    url: 'https://www.opentix.life/event/2032303556119486465' }
 ];
 const fmt = n => n.toLocaleString('zh-TW');
 const $ = id => document.getElementById(id);
@@ -197,6 +244,7 @@ function renderSessions() {
         <div><b>${['一','二','三'][i]}、${s.venue}</b>
           <div class="session-info">時間：${s.time}<br>主題：${s.theme}</div></div>
       </label>
+      <a class="ev-link" href="${s.url}" target="_blank" rel="noopener">活動介紹／座位圖（OPENTIX）↗</a>
       <div class="session-body">
         <div>票區（可複選）：</div>
         ${PRICES.map(p => `
@@ -207,7 +255,7 @@ function renderSessions() {
             </div>
             <div class="seats"></div>
           </div>`).join('')}
-        <p class="hint">如需指定選位，請填寫每一張的「排、號」（未填寫則由主辦方代選）</p>
+        <p class="hint seat-hint">已選擇自行選位：請填寫每一張的「排、號」（未填寫或位置已售出時，由主辦方代選鄰近位置）</p>
         <div class="subtotal">原價 <s>NT$<span class="orig">0</span></s>
           早鳥 7 折：<b>NT$<span class="disc">0</span></b></div>
       </div>`;
@@ -230,6 +278,19 @@ function renderSeats(tier) {
     box.appendChild(d);
   }
 }
+
+/* ---------- 選位、取票方式切換 ---------- */
+const radioVal = name => (document.querySelector(`input[name="${name}"]:checked`) || {}).value || '';
+function syncOptions() {
+  const pick = radioVal('seatPick') === 'yes';
+  $('orderForm').classList.toggle('pick-seat', pick);
+  $('seatPickBox').hidden = !pick;
+  const dl = radioVal('delivery');
+  $('eticketBox').hidden = dl !== '電子票';
+  $('pickupBox').hidden = dl !== '現場領票';
+}
+document.querySelectorAll('input[name="seatPick"], input[name="delivery"]')
+  .forEach(r => r.addEventListener('change', syncOptions));
 
 /* ---------- 計算金額 ---------- */
 function calc() {
@@ -299,6 +360,8 @@ function collect() {
     name: $('name').value.trim(), phone: $('phone').value.trim(),
     email: $('email').value.trim(), last5: $('last5').value.trim(),
     band: $('band').value.trim(), sessions: [], detail1: '', detail2: '', detail3: '',
+    seatPick: radioVal('seatPick') === 'yes', delivery: radioVal('delivery'),
+    otName: '', otPhone: '',
     items: [],  // 結構化明細，供後端重新計算金額
     view: []    // 彙整資料，供確認畫面與確認信使用
   };
@@ -313,6 +376,7 @@ function collect() {
       const q = parseInt(t.querySelector('.t-qty').value) || 0;
       orig += p * q;
       const seats = [...t.querySelectorAll('.seat')].map(el => {
+        if (!data.seatPick) return '代選';
         const r = el.querySelector('.row').value.trim(), n = el.querySelector('.no').value.trim();
         return (r || n) ? `${r}排${n}號` : '代選';
       });
@@ -327,6 +391,10 @@ function collect() {
     data['detail' + s.id] = parts.join('；') +
       ` ｜原價 NT$${fmt(orig)} ｜早鳥7折 NT$${fmt(Math.round(orig * DISCOUNT))}`;
   });
+  if (data.delivery === '電子票') {
+    data.otName = $('otName').value.trim();
+    data.otPhone = $('otPhone').value.trim();
+  }
   data.total = calc();
   return data;
 }
@@ -337,7 +405,11 @@ function validate(d) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) return '請填寫正確的 Email';
   if (d.last5 && !/^\d{5}$/.test(d.last5)) return '匯款帳戶後五碼須為 5 位數字（尚未匯款請留空）';
   if (!d.sessions.length) return '請至少選擇一個場次並勾選票區';
-  if (!d.band) return '請填寫您參加的樂團名稱';
+  if (!d.delivery) return '請選擇取票方式';
+  if (d.delivery === '電子票') {
+    if (!d.otName) return '請填寫 OPENTIX 會員姓名';
+    if (!/^[0-9\-+ ]{8,15}$/.test(d.otPhone)) return '請填寫正確的 OPENTIX 會員電話';
+  }
   return '';
 }
 
@@ -354,7 +426,9 @@ let pending = null;
 
 function showConfirm(d) {
   const rows = [['姓名', d.name], ['電話', d.phone], ['Email', d.email],
-    ['匯款後五碼', d.last5 || '尚未填寫（可稍後補填）'], ['樂團名稱', d.band]];
+    ['匯款後五碼', d.last5 || '尚未填寫（可稍後補填）'], ['樂團名稱', d.band || '（未填）'],
+    ['選位', d.seatPick ? '自行指定' : '由主辦方代選'],
+    ['取票方式', d.delivery === '電子票' ? `電子票（OPENTIX：${d.otName}／${d.otPhone}）` : d.delivery]];
   let html = '<table>' + rows.map(r => `<tr><th>${r[0]}</th><td>${esc(r[1])}</td></tr>`).join('') + '</table>';
   d.view.forEach(v => {
     html += `<div class="c-sess"><b>${esc(v.title)}</b><ul>` +
@@ -415,6 +489,7 @@ async function sendOrder(d) {
     document.querySelectorAll('.session').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.t-qty').forEach(q => q.disabled = true);
     document.querySelectorAll('.seats').forEach(s => s.innerHTML = '');
+    syncOptions();
     calc();
   } catch (ex) {
     showMsg('送出失敗：' + ex.message + '，請稍後再試。', false);
@@ -473,7 +548,9 @@ async function api(body) {
 
 function renderOrderView(o) {
   const rows = [['訂單編號', o.orderId], ['訂購時間', o.time], ['姓名', o.name], ['電話', o.phone],
-    ['Email', o.email], ['樂團名稱', o.band], ['匯款後五碼', o.last5 || '尚未填寫']];
+    ['Email', o.email], ['樂團名稱', o.band || '（未填）'],
+    ['取票方式', o.delivery === '電子票' ? `電子票（OPENTIX：${o.otName}／${o.otPhone}）` : (o.delivery || '—')],
+    ['匯款後五碼', o.last5 || '尚未填寫']];
   $('viewBody').innerHTML = '<h2>您的訂單</h2><table>' +
     rows.map(r => `<tr><th>${r[0]}</th><td>${esc(r[1])}</td></tr>`).join('') +
     `<tr><th>付款狀態</th><td><span class="badge s-${esc(o.status)}">${esc(o.status)}</span></td></tr></table>` +
