@@ -72,7 +72,21 @@
   .sub-box[hidden] { display: none; }
   .sub-box p { margin: 0 0 8px; }
   .sub-box ul { margin: 4px 0 8px; padding-left: 20px; }
-  .ev-link { display: inline-block; margin-top: 4px; font-size: .88rem; }
+  .ev-card { position: relative; display: flex; gap: 10px; align-items: flex-start; margin: 8px 0 0; padding: 8px;
+    border: 1px solid #e2e2e2; border-radius: 8px; background: #fff; color: inherit; text-decoration: none; }
+  .ev-card:hover, .ev-card:focus-visible { border-color: #b4462a; }
+  .ev-card img { width: 54px; height: 76px; object-fit: cover; border-radius: 4px; flex: none; background: #eee; }
+  .ev-card .ev-txt { min-width: 0; }
+  .ev-card .ev-t { font-weight: 600; font-size: .9rem; color: #b4462a; }
+  .ev-card .ev-d { font-size: .8rem; color: #555; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .ev-card .ev-s { font-size: .75rem; color: #888; margin-top: 2px; }
+  .ev-pop { display: none; position: absolute; left: 0; top: calc(100% + 6px); z-index: 20; width: min(440px, 88vw);
+    background: #fff; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.18); padding: 12px; }
+  .ev-pop .ev-pop-head { display: flex; gap: 12px; margin-bottom: 8px; }
+  .ev-pop img { width: 90px; height: 126px; }
+  .ev-pop .ev-full { font-size: .85rem; color: #333; white-space: pre-line; line-height: 1.6; }
+  .ev-card:hover .ev-pop, .ev-card:focus-visible .ev-pop { display: block; }
+  @media (hover: none) { .ev-card .ev-pop { display: none !important; } }
   .seats, .seat-hint { display: none; }
   form.pick-seat .seats, form.pick-seat .seat-hint { display: block; }
   .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
@@ -220,6 +234,37 @@ async function readResult(res) {
   }
 }
 const PRICES = [600, 800, 1000, 1200];
+/* 活動連結預覽（取自 OPENTIX 頁面的標題、摘要、圖片） */
+const EVENTS = {
+  'https://www.opentix.life/event/2032303556119486465': {
+    title: '《聲動漫:ACG音樂祭》',
+    img: 'https://s3.resource.opentix.life/upload/program/1773373817347qVFMATLJ3L.png',
+    desc: '時間:2026/11/28-2026/12/26,地點:臺中市中山堂,文山劇場,高雄市文化中心至善廳,主辦單位:聲動室內樂團,💥《聲動漫：ACG音樂祭》熱血、感動、青春、冒險——\n那些陪伴我們成長的動畫旋律，只要前奏一響起，就能立刻喚醒記憶中最深刻的畫面。從《新世紀福音戰士》的震撼經典，到《鬼滅之刃》的燃燒戰鬥；\n從《灌籃高手》的青春熱血，到《航海王》的偉大冒險；\n再到《我推的孩子》、《進擊的巨人》、《東京喰種》等近年話題動畫，每一首歌曲都承載著無數動漫迷的回憶與感動。《聲動漫：…'
+  },
+  'https://www.opentix.life/event/2032017897215483905': {
+    title: '《聲之響宴:宮崎駿動畫音樂會》',
+    img: 'https://s3.resource.opentix.life/upload/program/1773305666573HMPHk2x1Ym.png',
+    desc: '時間:2026/12/12-2026/12/26,地點:文山劇場,高雄市文化中心至善廳,主辦單位:聲動室內樂團,🍀《聲之饗宴》宮崎駿動畫配樂音樂會從《龍貓》的純真童趣，到《千與千尋》的奇幻詩意；\n從《天空之城》的壯麗冒險，到《霍爾的移動城堡》的浪漫與深情——\n作曲家久石讓筆下的旋律，陪伴無數人成長，也成為跨越世代的經典記憶。近年來隨著「宮崎駿重返大銀幕」系列活動，許多經典動畫再次登上電影院大銀幕，喚醒一代又一代觀眾的感動。聲動室內樂團的五位音樂家，也多次受邀於信義威…'
+  }
+};
+const escH = v => String(v).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function eventCard(url) {
+  const e = EVENTS[url];
+  if (!e) return `<a class="ev-card" href="${url}" target="_blank" rel="noopener">活動介紹（OPENTIX）↗</a>`;
+  const img = `<img src="${e.img}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.style.display='none'">`;
+  return `<a class="ev-card" href="${url}" target="_blank" rel="noopener" aria-label="${escH(e.title)}（另開新視窗）">
+    ${img}
+    <span class="ev-txt">
+      <span class="ev-t">${escH(e.title)} ↗</span>
+      <span class="ev-d">${escH(e.desc.replace(/\n/g, ' '))}</span>
+      <span class="ev-s">OPENTIX 兩廳院文化生活｜點擊開啟活動頁與座位圖</span>
+    </span>
+    <span class="ev-pop" aria-hidden="true">
+      <span class="ev-pop-head">${img}<span class="ev-t">${escH(e.title)}</span></span>
+      <span class="ev-full">${escH(e.desc)}</span>
+    </span>
+  </a>`;
+}
 const SESSIONS = [
   { id: 1, venue: '台中中山堂',         time: '2026/11/28（六）19:30', theme: '聲動漫 ACG 音樂祭',
     url: 'https://www.opentix.life/event/2032303556119486465' },
@@ -244,7 +289,7 @@ function renderSessions() {
         <div><b>${['一','二','三'][i]}、${s.venue}</b>
           <div class="session-info">時間：${s.time}<br>主題：${s.theme}</div></div>
       </label>
-      <a class="ev-link" href="${s.url}" target="_blank" rel="noopener">活動介紹／座位圖（OPENTIX）↗</a>
+      ${eventCard(s.url)}
       <div class="session-body">
         <div>票區（可複選）：</div>
         ${PRICES.map(p => `
