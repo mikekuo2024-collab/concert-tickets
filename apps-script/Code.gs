@@ -11,7 +11,7 @@ const SHEET_NAME = '訂單';
 // ===== 確認信設定（可自行修改）=====
 const ORGANIZER = '聲動室內樂團 SOUNDANZE ENSEMBLE';  // 寄件者顯示名稱
 const PAGE_URL = 'https://mikekuo2024-collab.github.io/concert-tickets/';  // 訂票網頁公開網址（確認信按鈕連到這裡）
-const PAYMENT_INFO = '銀行：（807）永豐銀行\n戶名：聲動室內樂團\n帳號：02401800131556';  // 確認信中的匯款資訊（\n 換行）；留空則不顯示
+const PAYMENT_INFO = '銀行：（807）永豐銀行 中壢分行（0243）\n戶名：聲動室內樂團\n帳號：02401800131556';  // 確認信中的匯款資訊（\n 換行）；留空則不顯示
 
 const DISCOUNT = 0.7;
 const PRICES = [600, 800, 1000, 1200];
@@ -20,12 +20,20 @@ const STATUS = ['未匯款', '待核對', '已確認', '已取消'];
 const HEADERS = ['訂單編號', '訂購時間', '姓名', '電話', 'Email', '匯款後五碼',
   '觀賞場次', '場次一明細', '場次二明細', '場次三明細', '早鳥總金額', '樂團名稱',
   '付款狀態', '後五碼填寫時間', '核對備註', '查詢碼',
-  '取票方式', 'OPENTIX會員姓名', 'OPENTIX會員電話', '自行選位'];
+  '取票方式', 'OPENTIX會員姓名', 'OPENTIX會員電話', '自行選位', '負責老師'];
+// 團購老師：代碼對應各老師頁面資料夾（例如 PAGE_URL + 'wang/'）
+const TEACHERS = { wang: '王裕文', wei: '魏鴻達', hsieh: '謝政良' };
+const TEACHER_IDS = {}; Object.keys(TEACHERS).forEach(k => TEACHER_IDS[TEACHERS[k]] = k);
+// 依老師姓名取得訂單頁網址（無老師則為首頁）
+function pageUrlFor_(teacherName) {
+  const id = TEACHER_IDS[teacherName];
+  return PAGE_URL + (id ? id + '/' : '');
+}
 const DELIVERY = ['電子票', '現場領票'];
 // 欄位位置（1 起算）
 const COL = { id: 1, time: 2, name: 3, phone: 4, email: 5, last5: 6, sessions: 7,
   detail1: 8, detail2: 9, detail3: 10, total: 11, band: 12, status: 13, last5Time: 14, note: 15, token: 16,
-  delivery: 17, otName: 18, otPhone: 19, seatPick: 20 };
+  delivery: 17, otName: 18, otPhone: 19, seatPick: 20, teacher: 21 };
 
 function doPost(e) {
   let d;
@@ -57,6 +65,9 @@ function withLock_(fn) {
 function createOrder_(d) {
   if (!d.name || !d.phone || !d.email) throw new Error('必填欄位未填寫');
   if (DELIVERY.indexOf(d.delivery) < 0) throw new Error('請選擇取票方式');
+  if (d.teacher && !TEACHERS[d.teacher]) throw new Error('團購老師代碼錯誤');
+  const teacherName = d.teacher ? TEACHERS[d.teacher] : '';
+  d.teacherName = teacherName;
   if (d.delivery === '電子票' && (!d.otName || !d.otPhone)) throw new Error('請填寫 OPENTIX 會員姓名與電話');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) throw new Error('Email 格式錯誤');
   if (d.last5 && !/^\d{5}$/.test(d.last5)) throw new Error('匯款後五碼格式錯誤');
@@ -86,7 +97,7 @@ function createOrder_(d) {
     total, d.band || '',
     d.last5 ? '待核對' : '未匯款', d.last5 ? now : '', '', token,
     d.delivery, d.delivery === '電子票' ? d.otName : '',
-    d.delivery === '電子票' ? "'" + d.otPhone : '', d.seatPick ? '是' : '否'
+    d.delivery === '電子票' ? "'" + d.otPhone : '', d.seatPick ? '是' : '否', teacherName
   ]);
   // 寄送確認信；寄信失敗不影響訂單成立
   let emailSent = false;
@@ -118,7 +129,7 @@ function sendConfirmMail_(d, orderId, total, token) {
     sessHtml = [d.detail1, d.detail2, d.detail3].filter(Boolean).map(x => '<p>' + esc(x) + '</p>').join('');
   }
 
-  const link = PAGE_URL + '?order=' + encodeURIComponent(orderId) + '&t=' + token;
+  const link = pageUrlFor_(d.teacherName) + '?order=' + encodeURIComponent(orderId) + '&t=' + token;
   const btnHtml =
     '<table cellpadding="0" cellspacing="0" style="margin:20px 0;"><tr><td style="background:#b4462a;border-radius:6px;">' +
     '<a href="' + esc(link) + '" style="display:inline-block;padding:12px 24px;color:#ffffff;text-decoration:none;font-weight:bold;">' +
@@ -141,6 +152,7 @@ function sendConfirmMail_(d, orderId, total, token) {
     '<tr><td style="' + td + 'color:#666;">電話</td><td style="' + td + '">' + esc(d.phone) + '</td></tr>' +
     '<tr><td style="' + td + 'color:#666;">Email</td><td style="' + td + '">' + esc(d.email) + '</td></tr>' +
     '<tr><td style="' + td + 'color:#666;">樂團名稱</td><td style="' + td + '">' + esc(d.band || '（未填）') + '</td></tr>' +
+    (d.teacherName ? '<tr><td style="' + td + 'color:#666;">團購老師</td><td style="' + td + '">' + esc(d.teacherName) + '老師</td></tr>' : '') +
     '<tr><td style="' + td + 'color:#666;">取票方式</td><td style="' + td + '">' +
       (d.delivery === '電子票' ? '電子票（OPENTIX 會員：' + esc(d.otName) + '／' + esc(d.otPhone) + '）' : esc(d.delivery)) + '</td></tr>' +
     '<tr><td style="' + td + 'color:#666;">選位</td><td style="' + td + '">' + (d.seatPick ? '自行指定（若已售出將代選鄰近位置）' : '由主辦方代選') + '</td></tr>' +
@@ -204,7 +216,8 @@ function getOrder_(d) {
       details: [c('detail1'), c('detail2'), c('detail3')].map(String).filter(x => x),
       sessions: String(c('sessions')), total: Number(c('total')),
       last5: String(c('last5') || ''), status: String(c('status') || ''),
-      delivery: String(c('delivery') || ''), otName: String(c('otName') || ''), otPhone: String(c('otPhone') || '')
+      delivery: String(c('delivery') || ''), otName: String(c('otName') || ''), otPhone: String(c('otPhone') || ''),
+      teacher: String(c('teacher') || '')
     } };
   }
   throw new Error('查無此訂單，請確認連結是否完整');
@@ -275,7 +288,7 @@ function readOrders_() {
       name: String(c('name')), phone: String(c('phone')), email: String(c('email')),
       band: String(c('band')), last5: String(c('last5') || ''), status: String(c('status') || ''),
       delivery: String(c('delivery') || ''), otName: String(c('otName') || ''), otPhone: String(c('otPhone') || ''),
-      seatPick: String(c('seatPick') || ''),
+      teacher: String(c('teacher') || ''), seatPick: String(c('seatPick') || ''),
       note: String(c('note') || ''), total: Number(c('total')) || 0,
       token: String(c('token') || ''),
       sessions: [1, 2, 3].map(n => ({ session: n, text: String(c('detail' + n) || ''), items: parseDetail_(c('detail' + n)) }))
@@ -328,12 +341,14 @@ function adminMail_(d) {
 
   orders.forEach(o => {
     try {
-      const link = o.token ? PAGE_URL + '?order=' + encodeURIComponent(o.orderId) + '&t=' + o.token : PAGE_URL;
+      const base = pageUrlFor_(o.teacher);
+      const link = o.token ? base + '?order=' + encodeURIComponent(o.orderId) + '&t=' + o.token : base;
       const vars = {
         '{姓名}': o.name, '{訂單編號}': o.orderId,
         '{總金額}': 'NT$' + Number(o.total).toLocaleString('en-US'), '{付款狀態}': o.status,
         '{場次}': o.sessions.map(x => names[x.session]).join('、'),
-        '{取票方式}': o.delivery || '未選擇'
+        '{取票方式}': o.delivery || '未選擇',
+        '{團購老師}': o.teacher ? o.teacher + '老師' : '聲動室內樂團'
       };
       let subject = String(d.subject), html = esc(d.body);
       Object.keys(vars).forEach(k => {

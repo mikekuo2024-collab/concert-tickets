@@ -112,6 +112,10 @@
         <h2>各場次預計營收（早鳥 7 折後，不含已取消）</h2>
         <div id="revBars"></div>
       </div>
+      <div class="card">
+        <h2>各團購老師業績（不含已取消）</h2>
+        <div id="teacherBars"></div>
+      </div>
       <div class="grid3" id="sessCards"></div>
     </section>
 
@@ -133,6 +137,11 @@
             <option value="待核對">待核對</option>
             <option value="已確認">已確認</option>
             <option value="已取消">已取消</option>
+          </select>
+          <select id="fTeacher">
+            <option value="">全部團購老師</option>
+            <option>王裕文</option><option>魏鴻達</option><option>謝政良</option>
+            <option value="__none">首頁（未指定老師）</option>
           </select>
           <select id="fDelivery">
             <option value="">全部取票方式</option>
@@ -175,6 +184,9 @@
             <option value="s3">場次三購票者｜高雄至善廳 12/26 19:00</option>
             <option value="nolast5">尚未填寫匯款資料</option>
             <option value="unpaid">尚未繳款（未匯款＋待核對）</option>
+            <option value="t-王裕文">王裕文老師的團購訂單</option>
+            <option value="t-魏鴻達">魏鴻達老師的團購訂單</option>
+            <option value="t-謝政良">謝政良老師的團購訂單</option>
             <option value="d-電子票">選擇電子票（OPENTIX）的訂購者</option>
             <option value="d-現場領票">選擇現場領票的訂購者</option>
             <option value="selected">訂單清單中勾選的訂單</option>
@@ -190,7 +202,7 @@
         </div>
         <label class="field"><span>主旨</span><input type="text" id="mSubject"></label>
         <label class="field"><span>內容</span><textarea id="mBody" rows="10"></textarea></label>
-        <p class="ph">可用變數：<code>{姓名}</code><code>{訂單編號}</code><code>{總金額}</code><code>{付款狀態}</code><code>{場次}</code><code>{取票方式}</code><code>{訂單連結}</code>（訂單連結會變成按鈕）</p>
+        <p class="ph">可用變數：<code>{姓名}</code><code>{訂單編號}</code><code>{總金額}</code><code>{付款狀態}</code><code>{場次}</code><code>{取票方式}</code><code>{團購老師}</code><code>{訂單連結}</code>（訂單連結會變成按鈕）</p>
         <button type="button" id="mSendBtn">寄出</button>
         <div id="mMsg" class="msg"></div>
       </div>
@@ -250,6 +262,7 @@ const PRICE_COLORS = { 600: 'var(--c3)', 800: 'var(--c4)', 1000: 'var(--c2)', 12
 const STATUS_LIST = ['未匯款', '待核對', '已確認', '已取消'];
 const STATUS_COLORS = { '未匯款': 'var(--s-no)', '待核對': 'var(--s-wait)', '已確認': 'var(--s-ok)', '已取消': 'var(--s-cancel)' };
 const DISCOUNT = 0.7;
+const TEACHER_LIST = ['王裕文', '魏鴻達', '謝政良'];
 
 const $ = id => document.getElementById(id);
 const fmt = n => Number(n || 0).toLocaleString('zh-TW');
@@ -320,7 +333,8 @@ const active = o => o.status !== '已取消';
 const sessRevenue = s => Math.round(s.items.reduce((a, i) => a + i.price * i.qty, 0) * DISCOUNT);
 
 function computeStats() {
-  const st = { orders: 0, tickets: 0, revenue: 0, confirmedRev: 0, status: {}, sess: {}, delivery: {} };
+  const st = { orders: 0, tickets: 0, revenue: 0, confirmedRev: 0, status: {}, sess: {}, delivery: {}, teacher: {} };
+  TEACHER_LIST.forEach(t => st.teacher[t] = { orders: 0, tickets: 0, revenue: 0, paid: 0 });
   STATUS_LIST.forEach(s => st.status[s] = { n: 0, amt: 0 });
   [1, 2, 3].forEach(n => {
     st.sess[n] = { orders: 0, tickets: 0, revenue: 0, paidRevenue: 0, tiers: {} };
@@ -332,6 +346,9 @@ function computeStats() {
     if (!active(o)) return;
     st.orders++; st.revenue += o.total;
     if (o.delivery) st.delivery[o.delivery] = (st.delivery[o.delivery] || 0) + 1;
+    const T = st.teacher[o.teacher || '（首頁）'] || (st.teacher[o.teacher || '（首頁）'] = { orders: 0, tickets: 0, revenue: 0, paid: 0 });
+    T.orders++; T.revenue += o.total; if (o.status === '已確認') T.paid += o.total;
+    o.sessions.forEach(x => x.items.forEach(i => T.tickets += i.qty));
     if (o.status === '已確認') st.confirmedRev += o.total;
     o.sessions.forEach(x => {
       const S = st.sess[x.session]; if (!S) return;
@@ -367,6 +384,17 @@ function renderOverview() {
     `<div style="width:${st.status[s].n / total * 100}%;background:${STATUS_COLORS[s]}" title="${s} ${st.status[s].n} 筆"></div>`).join('');
   $('statusLegend').innerHTML = STATUS_LIST.map(s =>
     `<span><i style="background:${STATUS_COLORS[s]}"></i>${s} <b>${st.status[s].n}</b> 筆（NT$${fmt(st.status[s].amt)}）</span>`).join('');
+
+  // 各團購老師
+  const tKeys = Object.keys(st.teacher).filter(k => TEACHER_LIST.includes(k) || st.teacher[k].orders);
+  const maxT = Math.max(1, ...tKeys.map(k => st.teacher[k].revenue));
+  $('teacherBars').innerHTML = tKeys.map(k => {
+    const T = st.teacher[k];
+    return `<div class="bar-row" style="grid-template-columns:110px 1fr 230px;">
+      <span>${esc(TEACHER_LIST.includes(k) ? k + '老師' : k)}</span>
+      <div class="bar-track"><div class="bar-fill" style="width:${T.revenue / maxT * 100}%;background:linear-gradient(90deg,var(--main) ${T.revenue ? T.paid / T.revenue * 100 : 0}%,#e8b3a5 0)"></div></div>
+      <span class="n">${T.orders} 筆｜${T.tickets} 張｜NT$${fmt(T.revenue)}</span></div>`;
+  }).join('') + `<div class="legend"><span><i style="background:var(--main)"></i>已確認收款</span><span><i style="background:#e8b3a5"></i>尚未確認</span></div>`;
 
   // 各場次營收
   const maxRev = Math.max(1, ...[1, 2, 3].map(n => st.sess[n].revenue));
@@ -410,7 +438,9 @@ $('sessCards').addEventListener('click', e => {
 });
 
 /* ---------- 訂單清單 ---------- */
-function matchFilter(o, sess, status, text, delivery) {
+function matchFilter(o, sess, status, text, delivery, teacher) {
+  if (teacher === '__none' && o.teacher) return false;
+  if (teacher && teacher !== '__none' && o.teacher !== teacher) return false;
   if (delivery && o.delivery !== delivery) return false;
   if (sess && !o.sessions.some(x => String(x.session) === sess)) return false;
   if (status === 'unpaid' && !(o.status === '未匯款' || o.status === '待核對')) return false;
@@ -423,7 +453,7 @@ function matchFilter(o, sess, status, text, delivery) {
   return true;
 }
 function filteredOrders() {
-  return ORDERS.filter(o => matchFilter(o, $('fSession').value, $('fStatus').value, $('fText').value.trim(), $('fDelivery').value));
+  return ORDERS.filter(o => matchFilter(o, $('fSession').value, $('fStatus').value, $('fText').value.trim(), $('fDelivery').value, $('fTeacher').value));
 }
 function ticketText(o) {
   return o.sessions.map(x => `<div><b>${SESSIONS[x.session].short}</b> ` +
@@ -435,7 +465,7 @@ function renderList() {
   $('listCount').textContent = `顯示 ${list.length} 筆｜已勾選 ${selected.size} 筆`;
   $('listBody').innerHTML = list.map(o => `<tr>
     <td><input type="checkbox" class="rowChk" data-id="${esc(o.orderId)}" ${selected.has(o.orderId) ? 'checked' : ''}></td>
-    <td>${esc(o.orderId)}${o.note ? `<div class="muted" title="${esc(o.note)}">📝 備註</div>` : ''}</td>
+    <td>${esc(o.orderId)}${o.teacher ? `<div><span class="badge b-info">${esc(o.teacher)}老師</span></div>` : ''}${o.note ? `<div class="muted" title="${esc(o.note)}">📝 備註</div>` : ''}</td>
     <td class="muted">${esc(o.time)}</td>
     <td>${esc(o.name)}<div class="muted">${esc(o.phone)}<br>${esc(o.email)}<br>樂團：${esc(o.band) || '（未填）'}</div></td>
     <td class="tickets">${ticketText(o)}
@@ -449,7 +479,7 @@ function renderList() {
   $('checkAll').checked = list.length > 0 && list.every(o => selected.has(o.orderId));
 }
 
-['fSession', 'fStatus', 'fDelivery'].forEach(id => $(id).addEventListener('change', renderList));
+['fSession', 'fStatus', 'fDelivery', 'fTeacher'].forEach(id => $(id).addEventListener('change', renderList));
 $('fText').addEventListener('input', renderList);
 $('checkAll').addEventListener('change', e => {
   filteredOrders().forEach(o => e.target.checked ? selected.add(o.orderId) : selected.delete(o.orderId));
@@ -530,6 +560,7 @@ function mailRecipients() {
     if (v === 'nolast5') return o.status === '未匯款' && !o.last5;
     if (v === 'unpaid') return o.status === '未匯款' || o.status === '待核對';
     if (v.startsWith('d-')) return o.delivery === v.slice(2);
+    if (v.startsWith('t-')) return o.teacher === v.slice(2);
     return false;
   });
 }
