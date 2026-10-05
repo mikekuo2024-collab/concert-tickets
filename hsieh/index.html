@@ -678,7 +678,6 @@ $('viewPayForm').addEventListener('submit', async e => {
 if (TEACHER) {
   $('teacherTag').textContent = TEACHER.name + '老師 團購表單';
   $('teacherTag').hidden = false;
-  document.querySelector('h1').textContent = TEACHER.name + '老師團購｜音樂會門票訂購';
   document.title = TEACHER.name + '老師團購表單｜聲動室內樂團音樂會';
 }
 renderSessions();
