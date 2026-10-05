@@ -42,12 +42,14 @@ function doPost(e) {
   try {
     // 唯讀或寄信的動作不鎖定，避免大量寄信時擋住訂票
     if (d.action === 'get') return json_(getOrder_(d));
+    if (d.action === 'status') return json_({ ok: true, open: salesOpen_() });
     if (d.action === 'adminData') { checkAdmin_(d); return json_(adminData_()); }
     if (d.action === 'adminMail') { checkAdmin_(d); return json_(adminMail_(d)); }
     // 會寫入試算表的動作需要鎖定
     return json_(withLock_(() => {
       if (d.action === 'pay') return fillLast5_(d);
       if (d.action === 'adminSetStatus') { checkAdmin_(d); return adminSetStatus_(d); }
+      if (d.action === 'adminSetSales') { checkAdmin_(d); return adminSetSales_(d); }
       return createOrder_(d);
     }));
   } catch (err) {
@@ -63,6 +65,7 @@ function withLock_(fn) {
 
 /* ---------- 新增訂單 ---------- */
 function createOrder_(d) {
+  if (!salesOpen_()) throw new Error('本活動已停止接受訂票');
   if (!d.name || !d.phone || !d.email) throw new Error('必填欄位未填寫');
   if (DELIVERY.indexOf(d.delivery) < 0) throw new Error('請選擇取票方式');
   if (d.teacher && !TEACHERS[d.teacher]) throw new Error('團購老師代碼錯誤');
@@ -300,7 +303,7 @@ function readOrders_() {
 
 function adminData_() {
   const orders = readOrders_().map(o => { const x = Object.assign({}, o); delete x.token; return x; });
-  return { ok: true, orders: orders, quota: MailApp.getRemainingDailyQuota(), organizer: ORGANIZER };
+  return { ok: true, orders: orders, quota: MailApp.getRemainingDailyQuota(), organizer: ORGANIZER, salesOpen: salesOpen_() };
 }
 
 // 批次更新付款狀態：updates = [{ orderId, status, note }]
@@ -369,4 +372,30 @@ function adminMail_(d) {
     }
   });
   return { ok: true, sent: sent.length, failed: failed, quota: MailApp.getRemainingDailyQuota() };
+}
+
+/* ---------- 發售控制 ----------
+ * 指令碼屬性 SALES_OPEN：'0' = 停止接受訂票；其他（含未設定）= 開放
+ */
+function salesOpen_() {
+  return PropertiesService.getScriptProperties().getProperty('SALES_OPEN') !== '0';
+}
+
+// d.open：true 開始發售 / false 停止發售；d.clear：開始發售時是否清空現有訂單（先備份）
+function adminSetSales_(d) {
+  const res = { ok: true, open: !!d.open, cleared: 0, backup: '' };
+  if (d.open && d.clear) {
+    const sheet = getSheet_();
+    const n = sheet.getLastRow() - 1;
+    if (n > 0) {
+      const ss = SpreadsheetApp.getActiveSpreadsheet();
+      const name = SHEET_NAME + '-清空前備份-' + Utilities.formatDate(new Date(), 'Asia/Taipei', 'yyyyMMdd-HHmmss');
+      sheet.copyTo(ss).setName(name);
+      sheet.getRange(2, 1, n, sheet.getLastColumn()).clearContent();
+      res.cleared = n;
+      res.backup = name;
+    }
+  }
+  PropertiesService.getScriptProperties().setProperty('SALES_OPEN', d.open ? '1' : '0');
+  return res;
 }

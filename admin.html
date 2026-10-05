@@ -102,6 +102,17 @@
 
     <!-- 總覽統計 -->
     <section id="pOverview" class="panel">
+      <div class="card" id="salesCard">
+        <h2>發售控制</h2>
+        <div class="toolbar" style="margin-bottom:0;">
+          <span>目前狀態：<b id="salesState">—</b></span>
+          <button type="button" id="openSalesBtn">開始發售（接受訂票）</button>
+          <button type="button" class="sec" id="closeSalesBtn">停止發售</button>
+          <label class="muted"><input type="checkbox" id="clearOnOpen"> 開始發售時清空現有訂單（測試資料），清空前自動備份到新分頁</label>
+        </div>
+        <p class="muted" style="margin:8px 0 0;">停止發售後，前台訂票網頁只保留「補填匯款資料」並顯示停止訂票公告；已訂購者仍可透過確認信填寫匯款資料。</p>
+        <div id="salesMsg" class="msg"></div>
+      </div>
       <div class="kpis" id="kpis"></div>
       <div class="card">
         <h2>付款狀態</h2>
@@ -272,6 +283,7 @@ const esc = v => String(v == null ? '' : v).replace(/[&<>"']/g, c =>
 let KEY = '';
 let ORDERS = [];
 let QUOTA = null;
+let SALES_OPEN = null;
 const selected = new Set();
 
 function showMsg(id, text, ok) { const m = $(id); m.textContent = text; m.className = 'msg ' + (ok ? 'ok' : 'err'); }
@@ -310,6 +322,9 @@ async function loadData() {
   try { sessionStorage.setItem('adminKey', KEY); } catch (_) {}
   ORDERS = r.orders;
   QUOTA = r.quota;
+  SALES_OPEN = r.salesOpen;
+  $('salesState').textContent = SALES_OPEN === false ? '已停止接受訂票' : '開放訂票中';
+  $('salesState').style.color = SALES_OPEN === false ? '#a12622' : '#1e6b34';
   $('login').hidden = true;
   $('app').hidden = false;
   $('refreshBtn').hidden = false;
@@ -726,6 +741,37 @@ $('rConfirmBtn').addEventListener('click', async () => {
   $('rMatchBtn').click();
   showMsg('rMsg', `已將 ${ids.length} 筆訂單標記為「已確認」`, true);
 });
+
+/* ---------- 發售控制 ---------- */
+$('openSalesBtn').addEventListener('click', async () => {
+  const clear = $('clearOnOpen').checked;
+  const n = ORDERS.length;
+  let msg = '確定開始發售，開放前台接受訂票？';
+  if (clear && n) msg += `\n\n⚠ 將清空「訂單」分頁中的 ${n} 筆訂單（會先備份到新分頁）。`;
+  if (!confirm(msg)) return;
+  if (clear && n && prompt(`請輸入「清空」兩字確認清除 ${n} 筆訂單：`) !== '清空') {
+    return showMsg('salesMsg', '未輸入「清空」，已取消操作', false);
+  }
+  await setSales(true, clear);
+});
+$('closeSalesBtn').addEventListener('click', async () => {
+  if (!confirm('確定停止發售？前台將不再接受新訂單，只保留補填匯款資料。')) return;
+  await setSales(false, false);
+});
+async function setSales(open, clear) {
+  $('openSalesBtn').disabled = $('closeSalesBtn').disabled = true;
+  try {
+    const r = await api({ action: 'adminSetSales', open, clear });
+    $('clearOnOpen').checked = false;
+    await loadData();
+    showMsg('salesMsg', (open ? '已開始發售，前台開放訂票。' : '已停止發售，前台只保留補填匯款資料。') +
+      (r.cleared ? `\n已清空 ${r.cleared} 筆訂單，備份分頁：${r.backup}` : ''), true);
+  } catch (ex) {
+    showMsg('salesMsg', '操作失敗：' + ex.message, false);
+  } finally {
+    $('openSalesBtn').disabled = $('closeSalesBtn').disabled = false;
+  }
+}
 
 /* ---------- 啟動：若本次瀏覽已登入過則自動載入 ---------- */
 if (KEY) loadData().catch(() => { KEY = ''; try { sessionStorage.removeItem('adminKey'); } catch (_) {} });
