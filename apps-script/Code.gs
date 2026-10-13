@@ -22,8 +22,13 @@ const HEADERS = ['訂單編號', '訂購時間', '姓名', '電話', 'Email', '�
   '付款狀態', '後五碼填寫時間', '核對備註', '查詢碼',
   '取票方式', 'OPENTIX會員姓名', 'OPENTIX會員電話', '自行選位', '負責老師'];
 // 團購老師：代碼對應各老師頁面資料夾（例如 PAGE_URL + 'wang/'）
-const TEACHERS = { wang: '王裕文', wei: '魏鴻達', hsieh: '謝政良' };
-const TEACHER_IDS = {}; Object.keys(TEACHERS).forEach(k => TEACHER_IDS[TEACHERS[k]] = k);
+// sessions：可訂購的場次 id；deadline：結單日（含當日，台灣時間）。須與 tools/build_teachers.py 一致
+const TEACHERS = {
+  wang:  { name: '王裕文', sessions: [1],    deadline: '2026-11-20' },
+  wei:   { name: '魏鴻達', sessions: [1],    deadline: '2026-11-20' },
+  hsieh: { name: '謝政良', sessions: [2, 3], deadline: '2026-12-20' }
+};
+const TEACHER_IDS = {}; Object.keys(TEACHERS).forEach(k => TEACHER_IDS[TEACHERS[k].name] = k);
 // 依老師姓名取得訂單頁網址（無老師則為首頁）
 function pageUrlFor_(teacherName) {
   const id = TEACHER_IDS[teacherName];
@@ -69,7 +74,13 @@ function createOrder_(d) {
   if (!d.name || !d.phone || !d.email) throw new Error('必填欄位未填寫');
   if (DELIVERY.indexOf(d.delivery) < 0) throw new Error('請選擇取票方式');
   if (d.teacher && !TEACHERS[d.teacher]) throw new Error('團購老師代碼錯誤');
-  const teacherName = d.teacher ? TEACHERS[d.teacher] : '';
+  const T = d.teacher ? TEACHERS[d.teacher] : null;
+  if (T) {
+    const today = Utilities.formatDate(new Date(), 'Asia/Taipei', 'yyyy-MM-dd');
+    if (today > T.deadline) throw new Error('本團購表單已於 ' + T.deadline.replace(/-/g, '/') + ' 結單');
+    if ((d.items || []).some(it => T.sessions.indexOf(Number(it.session)) < 0)) throw new Error('此團購表單不包含所選場次');
+  }
+  const teacherName = T ? T.name : '';
   d.teacherName = teacherName;
   if (d.delivery === '電子票' && (!d.otName || !d.otPhone)) throw new Error('請填寫 OPENTIX 會員姓名與電話');
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)) throw new Error('Email 格式錯誤');

@@ -7,10 +7,12 @@
 import json
 import os
 
+# sessions：此老師表單開放的場次 id（1=台中 11/28，2=高雄 12/26 午場，3=高雄 12/26 晚場）
+# deadline：結單日（含當日，台灣時間），須與 apps-script/Code.gs 的 TEACHERS 設定一致
 TEACHERS = [
-    {"id": "wang", "name": "王裕文"},
-    {"id": "wei", "name": "魏鴻達"},
-    {"id": "hsieh", "name": "謝政良"},
+    {"id": "wang", "name": "王裕文", "sessions": [1], "deadline": "2026-11-20"},
+    {"id": "wei", "name": "魏鴻達", "sessions": [1], "deadline": "2026-11-20"},
+    {"id": "hsieh", "name": "謝政良", "sessions": [2, 3], "deadline": "2026-12-20"},
 ]
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
